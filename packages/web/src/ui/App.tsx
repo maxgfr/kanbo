@@ -11,13 +11,14 @@ import { Button } from './design/Button'
 import { Icon, type IconName } from './design/Icon'
 import { ItemPanel } from './item/ItemPanel'
 import { MetricsView } from './metrics/MetricsView'
+import { ReleasesView } from './releases/ReleasesView'
 import { RoadmapView } from './roadmap/RoadmapView'
 import { SettingsPanel } from './settings/SettingsPanel'
 import { SprintView } from './sprint/SprintView'
 import { TableView } from './table/TableView'
 import { applyTheme } from './theme'
 
-type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'metrics'
+type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'releases' | 'metrics'
 
 const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
   { key: 'board', label: 'Board', icon: 'board' },
@@ -25,6 +26,7 @@ const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
   { key: 'backlog', label: 'Backlog', icon: 'backlog' },
   { key: 'sprint', label: 'Sprints', icon: 'calendar' },
   { key: 'roadmap', label: 'Roadmap', icon: 'roadmap' },
+  { key: 'releases', label: 'Releases', icon: 'tag' },
   { key: 'metrics', label: 'Metrics', icon: 'metrics' },
 ]
 
@@ -137,6 +139,8 @@ export function App() {
           <SprintView project={project} onOpen={setOpenItem} />
         ) : view === 'roadmap' ? (
           <RoadmapView project={project} onOpen={setOpenItem} />
+        ) : view === 'releases' ? (
+          <ReleasesView project={project} onOpen={setOpenItem} />
         ) : (
           <MetricsView project={project} />
         )}

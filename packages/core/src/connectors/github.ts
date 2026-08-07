@@ -11,6 +11,7 @@
  * A CORS proxy would quietly put a third party in the middle of everything.
  */
 import type { Http } from '../ports'
+import type { IssueConnector, RemoteIssue, RemotePullRequest } from './issues'
 import { decodeBase64, encodeBase64 } from './base64'
 import { ConflictError, type GitProvider, ProviderError, type WriteRequest } from './provider'
 
@@ -23,8 +24,9 @@ export type GitHubConfig = {
   readonly token: string
 }
 
-export function gitHubProvider(http: Http, config: GitHubConfig): GitProvider {
-  const base = `${config.apiBaseUrl.replace(/\/+$/, '')}/repos/${config.owner}/${config.repo}/contents`
+export function gitHubProvider(http: Http, config: GitHubConfig): GitProvider & IssueConnector {
+  const repo = `${config.apiBaseUrl.replace(/\/+$/, '')}/repos/${config.owner}/${config.repo}`
+  const base = `${repo}/contents`
 
   const headers = () => ({
     Accept: 'application/vnd.github+json',
@@ -123,6 +125,107 @@ export function gitHubProvider(http: Http, config: GitHubConfig): GitProvider {
         .filter((entry) => entry.type === 'file')
         .map((entry) => entry.path)
     },
+
+    // ---------------------------------------------------------- issues
+
+    async listIssues({ since } = {}) {
+      const query = new URLSearchParams({ state: 'all', per_page: '100' })
+      if (since !== undefined) query.set('since', new Date(since).toISOString())
+
+      const response = await http.request(`${repo}/issues?${query.toString()}`, {
+        method: 'GET',
+        headers: headers(),
+      })
+      if (response.status >= 400) fail(response.status, 'list issues')
+
+      const payload: unknown = JSON.parse(response.body)
+      if (!Array.isArray(payload)) return []
+
+      // GitHub returns pull requests from the issues endpoint. They are a
+      // different thing on the board and importing them as cards would double
+      // every piece of work in flight.
+      return payload
+        .filter(
+          (entry) => typeof entry === 'object' && entry !== null && !('pull_request' in entry),
+        )
+        .map(toIssue)
+    },
+
+    async createIssue(input) {
+      const response = await http.request(`${repo}/issues`, {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: input.title, body: input.body, labels: input.labels }),
+      })
+      if (response.status >= 400) fail(response.status, 'create an issue')
+      return toIssue(JSON.parse(response.body))
+    },
+
+    async updateIssue(number, patch) {
+      const response = await http.request(`${repo}/issues/${number}`, {
+        method: 'PATCH',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (response.status >= 400) fail(response.status, `update issue ${number}`)
+      return toIssue(JSON.parse(response.body))
+    },
+
+    async listPullRequests() {
+      const response = await http.request(`${repo}/pulls?state=all&per_page=100`, {
+        method: 'GET',
+        headers: headers(),
+      })
+      if (response.status >= 400) fail(response.status, 'list pull requests')
+
+      const payload: unknown = JSON.parse(response.body)
+      if (!Array.isArray(payload)) return []
+      return payload.map(toPullRequest)
+    },
+  }
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
+}
+
+function toIssue(raw: unknown): RemoteIssue {
+  const entry = (raw ?? {}) as Record<string, unknown>
+  const labels = Array.isArray(entry['labels'])
+    ? entry['labels'].map((label) =>
+        typeof label === 'string' ? label : asString((label as Record<string, unknown>)?.['name']),
+      )
+    : []
+  const assignees = Array.isArray(entry['assignees'])
+    ? entry['assignees'].map((user) => asString((user as Record<string, unknown>)?.['login']))
+    : []
+
+  return {
+    number: typeof entry['number'] === 'number' ? entry['number'] : 0,
+    title: asString(entry['title']),
+    // A GitHub issue with an empty body reports null, not an empty string.
+    body: asString(entry['body']),
+    state: entry['state'] === 'closed' ? 'closed' : 'open',
+    labels: labels.filter(Boolean),
+    assignees: assignees.filter(Boolean),
+    url: asString(entry['html_url']),
+    updatedAt: Date.parse(asString(entry['updated_at'])) || 0,
+  }
+}
+
+function toPullRequest(raw: unknown): RemotePullRequest {
+  const entry = (raw ?? {}) as Record<string, unknown>
+  const merged = asString(entry['merged_at']) !== ''
+  return {
+    number: typeof entry['number'] === 'number' ? entry['number'] : 0,
+    title: asString(entry['title']),
+    state: merged ? 'merged' : entry['state'] === 'closed' ? 'closed' : 'open',
+    draft: entry['draft'] === true,
+    url: asString(entry['html_url']),
+    branch: asString((entry['head'] as Record<string, unknown>)?.['ref']),
+    // Check status needs a second request per pull request; left null here so
+    // a caller decides whether that cost is worth paying.
+    checks: null,
   }
 }
 

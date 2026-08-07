@@ -3,6 +3,7 @@ import { wipeEverything } from '@kanbo/adapters-web'
 import { useEffect, useState } from 'react'
 
 import { documentMode } from '../../boot/policy'
+import { syncIssues } from '../../state/issues'
 import { type SyncState, hasToken, runSync, saveToken } from '../../state/sync'
 import { usePorts } from '../../state/useStore'
 import { readSyncSettings, writeSyncSettings } from '../../boot/syncSettings'
@@ -211,6 +212,8 @@ function RepositorySection() {
   const [token, setToken] = useState('')
   const [saved, setSaved] = useState<boolean | null>(null)
   const [state, setState] = useState<SyncState>({ kind: 'idle', at: null })
+  const [issuesBusy, setIssuesBusy] = useState(false)
+  const [issueReport, setIssueReport] = useState<string | null>(null)
 
   useEffect(() => {
     void hasToken(store).then(setSaved)
@@ -303,6 +306,27 @@ function RepositorySection() {
       <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)', lineHeight: 1.6 }}>
         The token needs the <code>repo</code> scope and nothing more. It is encrypted before it is
         stored, under a key the browser will not let JavaScript read back — including ours.
+      </p>
+      <div className="kb-row">
+        <Button
+          icon="repo"
+          disabled={issuesBusy}
+          onClick={() => {
+            setIssuesBusy(true)
+            void syncIssues(store).then((report) => {
+              setIssuesBusy(false)
+              setIssueReport(report.message)
+            })
+          }}
+        >
+          {issuesBusy ? 'Reconciling\u2026' : 'Reconcile issues'}
+        </Button>
+        {issueReport && <span className="kb-muted">{issueReport}</span>}
+      </div>
+      <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)', lineHeight: 1.6 }}>
+        Issues become cards and closed cards close their issues. Kanbo keeps sprints, points,
+        dependencies and order to itself \u2014 a forge has no place for them, and inventing labels
+        to smuggle them across would leave someone else a mess.
       </p>
       <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)', lineHeight: 1.6 }}>
         Your device writes only to <code>.kanbo/ops/{store.device.slice(0, 8)}….ndjson</code>.

@@ -196,6 +196,14 @@ async function run(browser: Browser): Promise<void> {
   check('the roadmap draws a bar once an item has a date', true)
   await shoot(strict, 'roadmap')
 
+  await strict.getByRole('button', { name: 'Releases' }).click()
+  await strict.waitForTimeout(300)
+  check(
+    'releases generate a note from what actually shipped',
+    (await strict.getByRole('button', { name: 'New milestone' }).count()) === 1,
+  )
+  await shoot(strict, 'releases')
+
   await strict.getByRole('button', { name: 'Metrics' }).click()
   await strict.waitForTimeout(300)
   check(
