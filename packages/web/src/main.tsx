@@ -1,8 +1,8 @@
 // The policy boot runs on import and must stay the first one: it narrows the
 // connected document's CSP, and a policy inserted late is a policy ignored.
-import './boot/policy.ts'
+import { navigatingAway } from './boot/policy.ts'
 
-import { ShareError, parseFragment } from '@kanbo/core'
+import { type ShareLink, ShareError, parseFragment } from '@kanbo/core'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -38,23 +38,42 @@ function fatal(title: string, detail: string): void {
  * touched at all. The reader gets a standalone copy and no route back into the
  * rest of the application.
  */
-let share = null
-try {
-  share = parseFragment(window.location.hash)
-} catch (error) {
-  fatal(
-    'This share could not be opened',
-    error instanceof ShareError ? error.message : 'The link is damaged.',
-  )
-}
+function start(): void {
+  let share: ShareLink | null = null
+  let damaged: string | null = null
+  try {
+    share = parseFragment(window.location.hash)
+  } catch (error) {
+    damaged = error instanceof ShareError ? error.message : 'The link is damaged.'
+  }
 
-if (share) {
-  reactRoot.render(
-    <StrictMode>
-      <ReaderView link={share} />
-    </StrictMode>,
-  )
-} else if (window.location.hash === '' || !window.location.hash.startsWith('#s=')) {
+  if (damaged !== null) {
+    fatal('This share could not be opened', damaged)
+    return
+  }
+
+  if (share) {
+    reactRoot.render(
+      <StrictMode>
+        <ReaderView link={share} />
+      </StrictMode>,
+    )
+    return
+  }
+
+  // A fragment that announces a share but carries nothing is a link cut short
+  // on the way here — the exact failure the share dialog warns the sender
+  // about. It must not fall through to the board: that would open the reader's
+  // own project under someone else's link, and an empty body used to render
+  // nothing at all, which is the one outcome a recipient cannot diagnose.
+  if (window.location.hash.startsWith('#s=')) {
+    fatal(
+      'This share could not be opened',
+      'The link is incomplete. Chat clients and mail clients cut long links short — ask for it again, as a file if it keeps happening.',
+    )
+    return
+  }
+
   const store = createStore()
   store
     .load()
@@ -76,3 +95,8 @@ if (share) {
       )
     })
 }
+
+// Nothing to start when the boot module has already sent this document
+// elsewhere: opening the vault and folding the log on a page the browser is
+// about to discard is work thrown away.
+if (!navigatingAway) start()

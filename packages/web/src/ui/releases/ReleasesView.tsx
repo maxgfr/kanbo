@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
 import { Button } from '../design/Button.tsx'
+import { COPY_REFUSED, copyText } from '../design/clipboard.ts'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'
 
@@ -26,12 +27,17 @@ export function ReleasesView({
   readonly onOpen: (itemId: string) => void
 }) {
   const dispatch = useDispatch()
-  const now = Date.now()
+  // Fixed for the life of the view rather than read on every render. Taken
+  // fresh each time it was a new value every render, so the memos below never
+  // hit and renaming a release re-derived the whole changelog and re-parsed its
+  // Markdown on every keystroke. A release note does not move minute to minute.
+  const [now] = useState(() => Date.now())
   const [windowDays, setWindowDays] = useState(14)
   /** Empty means "by date"; a milestone id means "everything in that release". */
   const [milestoneId, setMilestoneId] = useState('')
-  const [title, setTitle] = useState(suggestedTitle(now))
+  const [title, setTitle] = useState(() => suggestedTitle(Date.now()))
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
 
   // A window and a release are two different questions — "what shipped this
   // fortnight" and "what shipped in v2.0" — and `shipped` has always taken
@@ -218,7 +224,9 @@ export function ReleasesView({
               icon={copied ? 'check' : 'link'}
               disabled={note === ''}
               onClick={() => {
-                void navigator.clipboard.writeText(note).then(() => {
+                void copyText(note).then((ok) => {
+                  setCopyError(ok ? null : COPY_REFUSED)
+                  if (!ok) return
                   setCopied(true)
                   window.setTimeout(() => setCopied(false), 1500)
                 })
@@ -227,6 +235,12 @@ export function ReleasesView({
               {copied ? 'Copied' : 'Copy Markdown'}
             </Button>
           </div>
+
+          {copyError && (
+            <p style={{ color: 'var(--signal-cancelled)', margin: 0, fontSize: 'var(--step--1)' }}>
+              {copyError}
+            </p>
+          )}
 
           {note === '' ? (
             <p className="kb-muted" style={{ margin: 0 }}>

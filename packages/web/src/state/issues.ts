@@ -29,7 +29,16 @@ export type IssueSyncReport = {
  * happen to return in.
  */
 export async function syncIssues(store: Store): Promise<IssueSyncReport> {
-  const built = await buildProvider(store)
+  // Reads the token out of the vault, so it can reject like anything else that
+  // touches storage. Reported rather than thrown: the caller is a button, and a
+  // rejection there is a button that never comes back.
+  let built: Awaited<ReturnType<typeof buildProvider>>
+  try {
+    built = await buildProvider(store)
+  } catch (error) {
+    return { imported: 0, updated: 0, pushed: 0, message: describeFailure(error) }
+  }
+
   if ('reason' in built) {
     return { imported: 0, updated: 0, pushed: 0, message: built.reason }
   }
@@ -63,6 +72,15 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
 
   const plan = planIssueSync(project, issues, doneStatuses)
   const ports = createPorts()
+  const reportFor = (pushed: number) => ({
+    imported: plan.toCreate.length,
+    updated: plan.toUpdate.length,
+    pushed,
+    message:
+      plan.toCreate.length + plan.toUpdate.length + pushed === 0
+        ? 'Everything already matches.'
+        : `Imported ${plan.toCreate.length}, updated ${plan.toUpdate.length}, pushed ${pushed}.`,
+  })
 
   const bodies: OperationBody[] = [
     ...operationsForImport(plan.toCreate, (issue) =>
@@ -93,7 +111,11 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
     }
   }
 
-  if (bodies.length > 0) await store.dispatch(...bodies)
+  try {
+    if (bodies.length > 0) await store.dispatch(...bodies)
+  } catch (error) {
+    return { imported: 0, updated: 0, pushed: 0, message: describeFailure(error) }
+  }
 
   // Pushing happens after the local side settles, so a failure upward leaves
   // the board consistent rather than half-reconciled.
@@ -108,15 +130,11 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
     }
   }
 
-  return {
-    imported: plan.toCreate.length,
-    updated: plan.toUpdate.length,
-    pushed,
-    message:
-      plan.toCreate.length + plan.toUpdate.length + pushed === 0
-        ? 'Everything already matches.'
-        : `Imported ${plan.toCreate.length}, updated ${plan.toUpdate.length}, pushed ${pushed}.`,
-  }
+  return reportFor(pushed)
+}
+
+function describeFailure(error: unknown): string {
+  return error instanceof Error ? error.message : 'The issues could not be reconciled.'
 }
 
 /** Create an issue from a card, and remember the link. */

@@ -1,4 +1,4 @@
-import { DAY, type Item, type Project, isoDay, itemById, statusById } from '@kanbo/core'
+import { DAY, type Item, type Project, isoDay, statusById } from '@kanbo/core'
 import { useMemo } from 'react'
 
 import { Icon } from '../design/Icon.tsx'
@@ -15,6 +15,17 @@ import { signalForCategory } from '../design/StatusChip.tsx'
 const ROW = 34
 const BAR = 18
 const LABEL_WIDTH = 220
+
+/**
+ * How far ahead a roadmap will draw.
+ *
+ * `<input type="date">` accepts the year 275760, so one mistyped due date used
+ * to ask this view for four hundred thousand gridlines and as many SVG nodes —
+ * a tab that hangs, on every device the board syncs to, with no way back except
+ * finding the item in another view. Five years is well past any roadmap anyone
+ * is reading, and what falls outside is said rather than silently dropped.
+ */
+const HORIZON = 5 * 365 * DAY
 
 type Placed = {
   readonly item: Item
@@ -36,11 +47,16 @@ export function RoadmapView({
   readonly project: Project
   readonly onOpen: (itemId: string) => void
 }) {
-  const placed = useMemo<readonly Placed[]>(() => {
+  const { placed, beyond } = useMemo<{ placed: readonly Placed[]; beyond: number }>(() => {
     const rows: Placed[] = []
+    const horizon = Date.now() + HORIZON
     const scheduled = project.items.filter((item) => !item.archived && item.dueOn !== null)
+    const within = scheduled.filter((item) => {
+      const due = dateOf(item.dueOn)
+      return due !== null && due <= horizon
+    })
 
-    scheduled
+    within
       .toSorted((a, b) => (a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : 0))
       .forEach((item, index) => {
         const due = dateOf(item.dueOn)!
@@ -50,7 +66,7 @@ export function RoadmapView({
         rows.push({ item, row: index, from: Math.min(start, due), to: due })
       })
 
-    return rows
+    return { placed: rows, beyond: scheduled.length - within.length }
   }, [project.items])
 
   const unscheduled = project.items.filter((item) => !item.archived && item.dueOn === null)
@@ -64,6 +80,12 @@ export function RoadmapView({
           Give an item a due date and it appears here as a bar. Items without dates are left off
           deliberately — a roadmap that invents a schedule is the most confident kind of wrong.
         </p>
+        {beyond > 0 && (
+          <p className="kb-empty__body">
+            {beyond} item{beyond === 1 ? ' has a date' : 's have dates'} more than five years out,
+            so {beyond === 1 ? 'it is' : 'they are'} not drawn. That is usually a mistyped year.
+          </p>
+        )}
       </div>
     )
   }
@@ -84,11 +106,17 @@ export function RoadmapView({
 
   return (
     <div style={{ overflow: 'auto', padding: 'var(--space-4)' }}>
+      {/*
+        A group rather than an image. `role="img"` collapses everything inside
+        into one node, so a screen reader was told "Roadmap timeline with
+        dependencies" and nothing else — none of the work it depicts, and no way
+        to reach any of it.
+      */}
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width={width}
         height={height}
-        role="img"
+        role="group"
         aria-label="Roadmap timeline with dependencies"
       >
         {weeks.map((at) => (
@@ -177,7 +205,19 @@ export function RoadmapView({
           return (
             <g
               key={entry.item.id}
+              // Reachable from the keyboard, like every other way into an item.
+              // A bare `onClick` on a `<g>` is a control only a pointer can
+              // find, and a roadmap only a mouse can read fails the same
+              // promise the board keeps.
+              role="button"
+              tabIndex={0}
+              aria-label={`${entry.item.ref}, ${entry.item.title}, due ${entry.item.dueOn}`}
               onClick={() => onOpen(entry.item.id)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                onOpen(entry.item.id)
+              }}
               style={{ cursor: 'pointer' }}
             >
               <text
@@ -233,17 +273,14 @@ export function RoadmapView({
           not shown.
         </p>
       )}
+
+      {beyond > 0 && (
+        <p className="kb-muted" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--step--1)' }}>
+          {beyond} item{beyond === 1 ? ' is' : 's are'} due more than five years out and{' '}
+          {beyond === 1 ? 'is' : 'are'} not drawn. Usually that is a mistyped year — stretching the
+          chart to reach it would make everything else unreadable.
+        </p>
+      )}
     </div>
   )
-}
-
-export function criticalPath(project: Project, itemId: string, seen = new Set<string>()): number {
-  if (seen.has(itemId)) return 0
-  seen.add(itemId)
-  const item = itemById(project, itemId)
-  if (!item) return 0
-  const upstream = item.links
-    .filter((link) => link.type === 'blocked-by')
-    .map((link) => criticalPath(project, link.itemId, seen))
-  return (item.estimate ?? 0) + Math.max(0, ...upstream)
 }

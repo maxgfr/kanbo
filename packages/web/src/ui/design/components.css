@@ -155,6 +155,11 @@
   background: var(--ground);
 }
 
+/* A row appears only when there is something wrong to say in it. */
+.kb-shell[data-unsaved] {
+  grid-template-rows: auto auto 1fr;
+}
+
 .kb-topbar {
   grid-column: 1 / -1;
   display: flex;

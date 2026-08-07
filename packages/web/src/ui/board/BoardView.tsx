@@ -228,8 +228,15 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
     // Dropped on a column's empty area rather than on a card.
     if (overId.startsWith('column:')) {
       const statusId = overId.slice('column:'.length)
+      // Archived cards are excluded here as they are in the card branch below
+      // and in `orderForDrop`. Counted, a column whose only remaining cards are
+      // archived looked occupied: the bail-out was skipped and the drop was
+      // positioned against a neighbour that is not on screen.
       const column = project.items
-        .filter((candidate) => candidate.statusId === statusId && candidate.id !== item.id)
+        .filter(
+          (candidate) =>
+            candidate.statusId === statusId && candidate.id !== item.id && !candidate.archived,
+        )
         .toSorted(byOrder)
       const last = column.at(-1)?.order ?? null
       if (statusId === item.statusId && column.length === 0) return
@@ -335,6 +342,10 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
     >
       {toolbar}
 
+      {project.items.every((item) => item.archived) && (
+        <BoardEmpty onAdd={() => onAdd(columns[0]?.status.id ?? '')} />
+      )}
+
       <div className="kb-board">
         {columns.map(({ status, items }) => (
           <Column
@@ -388,15 +399,32 @@ function overLabel(project: Project, id: string): string {
   return labelOf(project, id)
 }
 
-export function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
+/**
+ * The prompt for a board with nothing on it yet.
+ *
+ * Drawn above the columns rather than in place of them. Replacing the whole
+ * board took the column editor and the sprint toolbar with it, so a new project
+ * — the one case this screen exists for — could only get a column by going to
+ * settings, which is the detour `AddColumn` was added to remove.
+ */
+function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
   return (
-    <div className="kb-empty">
-      <Icon name="board" size={28} />
-      <p className="kb-empty__title">Nothing is in flight</p>
-      <p className="kb-empty__body">
-        Add the first item and it appears in the leftmost column. Drag it across with the mouse, or
-        focus it and press space.
-      </p>
+    <div
+      className="kb-row"
+      style={{
+        margin: 'var(--space-4) var(--space-4) 0',
+        padding: 'var(--space-3) var(--space-4)',
+        border: '1px dashed var(--rule)',
+        borderRadius: 'var(--radius-lg)',
+        background: 'var(--surface)',
+      }}
+    >
+      <Icon name="board" size={16} />
+      <span>
+        Nothing is in flight. Add the first item and it appears in the leftmost column — drag it
+        across with the mouse, or focus it and press space.
+      </span>
+      <span className="kb-spacer" />
       <Button variant="primary" icon="plus" onClick={onAdd}>
         Add an item
       </Button>

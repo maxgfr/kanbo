@@ -38,6 +38,54 @@ function Row({ children }: { readonly children: ReactNode }) {
   )
 }
 
+/**
+ * The choices of a select field, typed as one comma-separated line.
+ *
+ * The text is held here rather than derived from the stored options on every
+ * render, because the two are not the same thing while someone is typing. A
+ * controlled input showing `options.join(', ')` unparsed its own value on every
+ * keystroke: type `high` then a comma, and the comma split off an empty
+ * fragment that was filtered away, so the field re-rendered as `high` with the
+ * caret moved. A second choice could not be typed at all — only pasted.
+ *
+ * Parsed on the way out instead. What you typed stays on screen until you leave
+ * the field, and the stored list is the same either way.
+ */
+function ChoicesInput({ field }: { readonly field: Field }) {
+  const dispatch = useDispatch()
+  const [draft, setDraft] = useState<string | null>(null)
+
+  const commit = () => {
+    if (draft === null) return
+    const options = draft
+      .split(',')
+      .map((option) => option.trim())
+      .filter(Boolean)
+    setDraft(null)
+    // Compared element by element rather than through a joined string, so
+    // no separator has to be a character a choice could not contain.
+    const unchanged =
+      options.length === field.options.length &&
+      options.every((option, at) => option === field.options[at])
+    if (unchanged) return
+    void dispatch({ kind: 'field.upsert', field: { ...field, options } })
+  }
+
+  return (
+    <input
+      className="kb-input"
+      value={draft ?? field.options.join(', ')}
+      placeholder="Choices, separated by commas"
+      aria-label={`Choices for ${field.name}`}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') commit()
+      }}
+    />
+  )
+}
+
 export function LabelsSection() {
   const project = useProject()
   const dispatch = useDispatch()
@@ -242,24 +290,7 @@ export function FieldsSection() {
           </Row>
 
           {(field.type === 'select' || field.type === 'multi-select') && (
-            <input
-              className="kb-input"
-              value={field.options.join(', ')}
-              placeholder="Choices, separated by commas"
-              aria-label={`Choices for ${field.name}`}
-              onChange={(event) =>
-                void dispatch({
-                  kind: 'field.upsert',
-                  field: {
-                    ...field,
-                    options: event.target.value
-                      .split(',')
-                      .map((option) => option.trim())
-                      .filter(Boolean),
-                  },
-                })
-              }
-            />
+            <ChoicesInput field={field} />
           )}
 
           {deleting === field.id && (

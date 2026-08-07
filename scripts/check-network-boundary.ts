@@ -47,6 +47,27 @@ const NETWORK_APIS = [
   /\bnavigator\.connection\b/,
 ]
 
+/**
+ * Markup written from a string, which Kanbo never does.
+ *
+ * The README's claim is that there is no `dangerouslySetInnerHTML` anywhere and
+ * no sanitiser to get wrong — the Markdown parser hands over a tree of values
+ * and the renderer turns it into elements, so raw HTML in a description arrives
+ * as literal text. That held because nobody had reached for the shortcut yet,
+ * not because anything stopped them; a description is text a stranger wrote and
+ * can arrive from a forge issue, an import or a share link.
+ *
+ * Checked here for the same reason the network APIs are: a promise the build
+ * does not enforce is a promise that lasts until the next hurried afternoon.
+ */
+const MARKUP_APIS = [
+  /\bdangerouslySetInnerHTML\b/,
+  /\.innerHTML\s*=/,
+  /\.outerHTML\s*=/,
+  /\binsertAdjacentHTML\s*\(/,
+  /\bdocument\.write\b/,
+]
+
 const failures: string[] = []
 
 function fail(message: string): void {
@@ -94,6 +115,14 @@ async function checkSourceBoundary(): Promise<void> {
         fail(
           `${rel} uses a network API (${pattern.source}) outside the transport module. ` +
             `Route it through one of ${TRANSPORT_MODULES.join(' or ')}, which enforce the configured origin.`,
+        )
+      }
+    }
+    for (const pattern of MARKUP_APIS) {
+      if (pattern.test(code)) {
+        fail(
+          `${rel} builds markup from a string (${pattern.source}). Kanbo renders elements from ` +
+            `parsed values instead, so there is no sanitiser to get wrong — see ui/design/Markdown.tsx.`,
         )
       }
     }
@@ -228,5 +257,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `✓ Network boundary intact: ${TRANSPORT_MODULES.length} transport modules, two documents, policies as declared.`,
+  `✓ Network boundary intact: ${TRANSPORT_MODULES.length} transport modules, no markup built from strings, ` +
+    `two documents, policies as declared.`,
 )

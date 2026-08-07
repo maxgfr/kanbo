@@ -152,7 +152,12 @@ export function TokenPicker({
           onBlur={create}
           onKeyDown={(event) => {
             if (event.key === 'Enter') create()
-            if (event.key === 'Escape') setCreating(null)
+            if (event.key === 'Escape') {
+              // Claimed: abandoning a half-typed label is not a request to
+              // close the panel it was being typed in.
+              event.stopPropagation()
+              setCreating(null)
+            }
           }}
         />
       )}

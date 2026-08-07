@@ -169,7 +169,12 @@ export function SubIssues({
           onBlur={() => void createChild()}
           onKeyDown={(event) => {
             if (event.key === 'Enter') void createChild()
-            if (event.key === 'Escape') setAdding(null)
+            if (event.key === 'Escape') {
+              // Claimed, or the item panel above would close as well and
+              // cancelling a sub-issue would cost you the card.
+              event.stopPropagation()
+              setAdding(null)
+            }
           }}
         />
       )}

@@ -11,6 +11,8 @@ import { useState } from 'react'
 
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
+import { useDialog } from '../design/useDialog.ts'
+import { COPY_REFUSED, copyText } from '../design/clipboard.ts'
 
 type Made = {
   readonly link: string
@@ -31,7 +33,13 @@ function readerBase(): string {
   return url.toString()
 }
 
-/** Hand the ciphertext over as a file, without a round trip through anything. */
+/**
+ * Hand the ciphertext over as a file, without a round trip through anything.
+ *
+ * Revoked a tick after the click rather than on the next line: same tick races
+ * the browser's own start of the download, and losing it here means a share
+ * whose recipient can never open it.
+ */
 function downloadFile(share: Made) {
   const url = URL.createObjectURL(
     new Blob([encodeEnvelope(share.envelope)], { type: 'application/octet-stream' }),
@@ -39,8 +47,14 @@ function downloadFile(share: Made) {
   const link = document.createElement('a')
   link.href = url
   link.download = share.fileName
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.append(link)
   link.click()
-  URL.revokeObjectURL(url)
+  setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(url)
+  }, 0)
 }
 
 export function ShareDialog({
@@ -57,6 +71,7 @@ export function ShareDialog({
   const [made, setMade] = useState<Made | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const { ref: panelRef, onKeyDown } = useDialog<HTMLElement>(onClose)
 
   async function make() {
     setBusy(true)
@@ -90,8 +105,22 @@ export function ShareDialog({
 
   return (
     <>
-      <button type="button" className="kb-panel__scrim" aria-label="Close" onClick={onClose} />
-      <aside className="kb-panel" role="dialog" aria-modal="true" aria-label="Share this board">
+      <button
+        type="button"
+        className="kb-panel__scrim"
+        aria-label="Close"
+        onClick={onClose}
+        onKeyDown={onKeyDown}
+      />
+      <aside
+        ref={panelRef}
+        className="kb-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Share this board"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
         <header className="kb-panel__header">
           <Icon name="link" size={16} />
           <strong>Share this board</strong>
@@ -194,7 +223,12 @@ export function ShareDialog({
                   <Button
                     icon={copied ? 'check' : 'link'}
                     onClick={() =>
-                      void navigator.clipboard.writeText(made.link).then(() => {
+                      void copyText(made.link).then((ok) => {
+                        if (!ok) {
+                          setError(COPY_REFUSED)
+                          return
+                        }
+                        setError(null)
                         setCopied(true)
                         window.setTimeout(() => setCopied(false), 1500)
                       })

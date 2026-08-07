@@ -8,7 +8,7 @@ import {
   statusById,
   wouldCycle,
 } from '@kanbo/core'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
@@ -16,6 +16,7 @@ import { blockedBy } from '../board/Card.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'
+import { useDialog } from '../design/useDialog.ts'
 import { ItemComments } from './ItemComments.tsx'
 import { ItemFields } from './ItemFields.tsx'
 import { ItemHistory } from './History.tsx'
@@ -44,17 +45,40 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
   const [draft, setDraft] = useState('')
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  /**
+   * The description is the one field that is not written as you type, because
+   * a Markdown body is edited in prose rather than in fragments. That makes the
+   * draft the only unsaved thing in the panel, and it has to be flushed by
+   * something other than blur: closing the panel unmounts the textarea, and no
+   * browser fires `focusout` on an element that is being removed. Typing a
+   * description and pressing Escape used to lose all of it.
+   */
+  const pending = useRef<{ itemId: string; body: string } | null>(null)
+
+  const flush = useCallback(() => {
+    const held = pending.current
+    pending.current = null
+    if (!held) return
+    void dispatch({ kind: 'item.set', itemId: held.itemId, patch: { description: held.body } })
+  }, [dispatch])
+
+  // Changing item mid-edit must commit to the item being left, not carry its
+  // text onto the next one — which is what a shared draft with no reset did.
+  useEffect(() => {
+    return () => {
+      flush()
+      setEditingBody(false)
+      setDraft('')
+    }
+  }, [itemId, flush])
+
+  const { ref: panelRef, onKeyDown } = useDialog<HTMLElement>(onClose)
+
+  // Opening a relative replaces what is on screen without remounting, so the
+  // dialog hook's mount-time focus does not fire. Focus has to follow the item.
   useEffect(() => {
     closeRef.current?.focus()
   }, [itemId])
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   if (!item) return null
 
@@ -71,8 +95,19 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
         className="kb-panel__scrim"
         aria-label="Close the item"
         onClick={onClose}
+        onKeyDown={onKeyDown}
       />
-      <aside className="kb-panel" role="dialog" aria-modal="true" aria-label={item.title}>
+      <aside
+        ref={panelRef}
+        className="kb-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={item.title}
+        // Focusable so the dialog itself can hold focus when nothing inside it
+        // has taken it yet; without that, Escape has nothing to bubble through.
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
         <header className="kb-panel__header">
           <span className="data kb-muted">{item.ref}</span>
           {status && <StatusChip label={status.name} signal={signalForCategory(status.category)} />}
@@ -223,7 +258,8 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
               <Button
                 variant="quiet"
                 onClick={() => {
-                  setDraft(item.description)
+                  if (editingBody) flush()
+                  else setDraft(item.description)
                   setEditingBody(!editingBody)
                 }}
               >
@@ -236,8 +272,11 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
                 className="kb-textarea"
                 value={draft}
                 placeholder="Markdown. Round-trips with issue bodies exactly."
-                onChange={(event) => setDraft(event.target.value)}
-                onBlur={() => set({ description: draft })}
+                onChange={(event) => {
+                  setDraft(event.target.value)
+                  pending.current = { itemId: item.id, body: event.target.value }
+                }}
+                onBlur={flush}
               />
             ) : item.description === '' ? (
               <p className="kb-muted" style={{ margin: 0 }}>

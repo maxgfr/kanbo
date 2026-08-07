@@ -2,3 +2,6 @@ node_modules/
 dist/
 coverage/
 pnpm-lock.yaml
+
+# Caches written by editor tooling, which is not ours to format.
+.impeccable/

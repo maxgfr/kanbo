@@ -22,14 +22,23 @@ export function useLog(): readonly Operation[] {
   return useSyncExternalStore(store.subscribe, store.getLog, store.getLog)
 }
 
+/** The last write that did not land, so the shell can say so rather than pretend. */
+export function usePersistFailure(): Error | null {
+  const store = useStoreInstance()
+  return useSyncExternalStore(store.subscribe, store.getFailure, store.getFailure)
+}
+
 /**
  * Emit operations. Every mutation in the interface goes through this — there
  * is no other way to change what is on screen, which is what keeps the display
  * and the log from ever disagreeing.
  */
 export function useDispatch(): (...bodies: readonly OperationBody[]) => Promise<void> {
-  const store = useStoreInstance()
-  return store.dispatch.bind(store)
+  // Returned as it is rather than re-bound: `Store.dispatch` is an arrow
+  // property and so already carries its instance. A fresh `.bind` per render
+  // would be a new identity every time, which defeats memoisation and turns
+  // any effect that depends on it into a loop.
+  return useStoreInstance().dispatch
 }
 
 export function usePorts() {

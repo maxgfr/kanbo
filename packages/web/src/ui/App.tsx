@@ -1,13 +1,14 @@
 import { type Project, byOrder, newItem } from '@kanbo/core'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
+import { takeHandover } from '../boot/handover.ts'
 import { readSyncSettings } from '../boot/syncSettings.ts'
 import { type DeliveryCache, deliveriesFor, refreshDelivery } from '../state/delivery.ts'
 import { createPorts, seedOperations } from '../state/store.ts'
 import { type SyncState, runSync, saveToken } from '../state/sync.ts'
-import { useDispatch, usePorts, useProject } from '../state/useStore.ts'
+import { useDispatch, usePersistFailure, usePorts, useProject } from '../state/useStore.ts'
 import { BacklogView } from './backlog/BacklogView.tsx'
-import { BoardEmpty, BoardView } from './board/BoardView.tsx'
+import { BoardView } from './board/BoardView.tsx'
 import { Button } from './design/Button.tsx'
 import { Icon, type IconName } from './design/Icon.tsx'
 import { ItemPanel } from './item/ItemPanel.tsx'
@@ -39,22 +40,49 @@ export function App() {
   const dispatch = useDispatch()
   const [view, setView] = useState<ViewKey>('board')
   const [openItem, setOpenItem] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Switching between local and repository mode loads the other document, so
+  // the panel the switch was made in is destroyed with everything else. The
+  // marker is what brings it back, and it is cleared as soon as it is read.
+  const [settingsOpen, setSettingsOpen] = useState(() => takeHandover() === 'settings')
+  const [switched, setSwitched] = useState(settingsOpen)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [delivery, setDelivery] = useState<DeliveryCache | null>(null)
+  // A write that did not land is the one failure the board cannot show by
+  // itself: the screen is updated before the write, so it looks saved.
+  const unsaved = usePersistFailure()
+
+  function closeSettings() {
+    setSettingsOpen(false)
+    setSwitched(false)
+  }
 
   useEffect(() => {
     applyTheme()
     return watchSystemTheme()
   }, [])
 
-  // Pull requests are fetched once and cached; the board shows what it last
-  // knew rather than nothing when the forge is unreachable.
-  useEffect(() => {
-    if (readSyncSettings().mode !== 'connected') return
-    void refreshDelivery(store).then(setDelivery)
-  }, [store])
+  // Pull requests are fetched and cached; the board shows what it last knew
+  // rather than nothing when the forge is unreachable. Re-read after a sync as
+  // well as at mount — `store` never changes, so this used to run exactly once
+  // and the pull-request badges could only be refreshed by reloading the page.
+  const refreshPulls = useCallback(
+    // Forced after a sync: the cache is deliberately kept for fifteen minutes,
+    // which is right on arrival and wrong the moment someone asks for the
+    // latest by pressing Sync.
+    (force = false) => {
+      if (readSyncSettings().mode !== 'connected') return
+      void refreshDelivery(store, { force })
+        .then(setDelivery)
+        // Reported nowhere on purpose: the badges are a convenience, the cache
+        // already holds what we last knew, and a failure here must not become
+        // an unhandled rejection.
+        .catch(() => undefined)
+    },
+    [store],
+  )
+
+  useEffect(() => refreshPulls(), [refreshPulls])
 
   // One shortcut, on the key everyone already presses for this.
   useEffect(() => {
@@ -86,7 +114,28 @@ export function App() {
   const active = project.items.filter((item) => !item.archived)
 
   return (
-    <div className="kb-shell">
+    <div className="kb-shell" data-unsaved={unsaved ? '' : undefined}>
+      {unsaved && (
+        <p
+          role="alert"
+          className="kb-row"
+          style={{
+            gridColumn: '1 / -1',
+            margin: 0,
+            padding: 'var(--space-2) var(--space-4)',
+            color: 'var(--signal-cancelled)',
+            background: 'var(--signal-cancelled-dim)',
+            borderBottom: '1px solid var(--signal-cancelled)',
+            lineHeight: 1.5,
+          }}
+        >
+          <Icon name="warning" size={14} />
+          <span>
+            Your last change was not saved to this browser. {unsaved.message} Export before
+            reloading — what is on screen is ahead of what is on disk.
+          </span>
+        </p>
+      )}
       <header className="kb-topbar">
         <Icon name="board" size={18} />
         <strong style={{ letterSpacing: '-0.02em' }}>{project.name || 'Kanbo'}</strong>
@@ -100,7 +149,7 @@ export function App() {
             &#8984;K
           </span>
         </Button>
-        <SyncButton />
+        <SyncButton onSynced={() => refreshPulls(true)} />
         <Button variant="quiet" icon="link" aria-label="Share" onClick={() => setShareOpen(true)} />
         <Button variant="primary" icon="plus" onClick={() => void addItem()}>
           New item
@@ -185,9 +234,7 @@ export function App() {
       </nav>
 
       <main className="kb-main">
-        {active.length === 0 && view === 'board' ? (
-          <BoardEmpty onAdd={() => void addItem()} />
-        ) : view === 'board' ? (
+        {view === 'board' ? (
           <BoardView
             project={project}
             deliveries={deliveriesFor(store, delivery)}
@@ -217,7 +264,7 @@ export function App() {
           onOpen={setOpenItem}
         />
       )}
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel announceMode={switched} onClose={closeSettings} />}
       {shareOpen && <ShareDialog project={project} onClose={() => setShareOpen(false)} />}
       {paletteOpen && (
         <CommandPalette
@@ -267,14 +314,26 @@ function FirstRun() {
   async function joinExisting() {
     setJoining(true)
     setJoinError(null)
-    // Saved first: a joining device has no token yet, and asking for it here
-    // rather than sending the user to a settings screen they cannot reach is
-    // the difference between a working flow and a dead end.
-    if (token.trim() !== '') await saveToken(store, token)
-    const state = await runSync(store)
-    setJoining(false)
-    if (state.kind === 'failed') setJoinError(state.message)
-    else if (state.kind === 'unconfigured') setJoinError(state.reason)
+    try {
+      // Saved first: a joining device has no token yet, and asking for it here
+      // rather than sending the user to a settings screen they cannot reach is
+      // the difference between a working flow and a dead end.
+      if (token.trim() !== '') await saveToken(store, token)
+      const state = await runSync(store)
+      if (state.kind === 'failed') setJoinError(state.message)
+      else if (state.kind === 'unconfigured') setJoinError(state.reason)
+      // A sync that worked and found nothing has to say so. Silence here reads
+      // as a broken button on the one screen a joining device cannot leave.
+      else if (store.getProject().statuses.length === 0) {
+        setJoinError('That repository holds no Kanbo project yet. Create the board instead.')
+      }
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'The repository could not be reached.')
+    } finally {
+      // In a finally, because this is the only control on a device with no
+      // board: leaving it disabled would be a dead end with no way back.
+      setJoining(false)
+    }
   }
 
   const suggestedKey = (name.trim().split(/\s+/)[0] ?? '').slice(0, 4).toUpperCase()
@@ -375,7 +434,7 @@ export type { Project }
  * Only shown in repository mode: a button that cannot do anything is worse
  * than no button, and in local mode there is nothing to sync with.
  */
-function SyncButton() {
+function SyncButton({ onSynced }: { readonly onSynced: () => void }) {
   const store = usePorts()
   const [state, setState] = useState<SyncState>({ kind: 'idle', at: null })
   if (readSyncSettings().mode !== 'connected') return null
@@ -396,7 +455,21 @@ function SyncButton() {
       style={failed ? { color: 'var(--signal-delayed)' } : undefined}
       onClick={() => {
         setState({ kind: 'syncing' })
-        void runSync(store).then(setState)
+        void runSync(store)
+          .then((next) => {
+            setState(next)
+            // What the forge says about work in flight may have moved too.
+            if (next.kind === 'idle') onSynced()
+          })
+          // `runSync` reports rather than throws, and this is what keeps that
+          // true if it ever stops being: a button that never comes back is
+          // worse than one that says what went wrong.
+          .catch((error: unknown) =>
+            setState({
+              kind: 'failed',
+              message: error instanceof Error ? error.message : 'Sync failed.',
+            }),
+          )
       }}
     >
       {state.kind === 'syncing' ? 'Syncing\u2026' : 'Sync'}

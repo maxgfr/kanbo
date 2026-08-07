@@ -31,15 +31,22 @@ export type StatusChipProps = {
 export function StatusChip({ label, signal, animate = true }: StatusChipProps) {
   const [shown, setShown] = useState(label)
   const [flipping, setFlipping] = useState(false)
-  const mounted = useRef(false)
+  /**
+   * The label this chip last reacted to, held in a ref rather than in state.
+   *
+   * It was previously read from `shown` with `shown` in the dependency array —
+   * and the effect sets `shown` at the midpoint of the flip. So the deps
+   * changed mid-animation, the cleanup cancelled the timer that was to clear
+   * `flipping`, and the re-run bailed out at `label === shown` with the flag
+   * stuck on. Every later change then found `setFlipping(true)` already true,
+   * never toggled the attribute, and never restarted the animation: the one
+   * authored motion in Kanbo worked once per chip and was silently dead after.
+   */
+  const reacted = useRef(label)
 
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true
-      setShown(label)
-      return
-    }
-    if (label === shown) return
+    if (reacted.current === label) return
+    reacted.current = label
 
     if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setShown(label)
@@ -55,7 +62,7 @@ export function StatusChip({ label, signal, animate = true }: StatusChipProps) {
       window.clearTimeout(swap)
       window.clearTimeout(settle)
     }
-  }, [label, shown, animate])
+  }, [label, animate])
 
   return (
     <span className={`kb-chip kb-chip--${signal}`} data-flipping={flipping || undefined}>

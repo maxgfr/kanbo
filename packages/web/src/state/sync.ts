@@ -90,10 +90,17 @@ export async function hasToken(store: Store): Promise<boolean> {
  * commit that looks like one device overwriting another.
  */
 export async function runSync(store: Store): Promise<SyncState> {
-  const built = await buildProvider(store)
-  if ('reason' in built) return { kind: 'unconfigured', reason: built.reason }
-
+  // Everything is inside the try, `buildProvider` included. It reads the
+  // encrypted token out of IndexedDB, and a failure there used to escape past
+  // the caller's `.then` — leaving the Sync button disabled and saying
+  // "Syncing…" for the rest of the session.
   try {
+    const built = await buildProvider(store)
+    if ('reason' in built) return { kind: 'unconfigured', reason: built.reason }
+
+    // Sealed before the log is read, not after: anything pushed is out of our
+    // hands, and a later edit must not quietly replace it here.
+    store.seal()
     const result = await synchronise(built.provider, store.device, store.getLog())
     await store.absorb(result.log)
     return { kind: 'idle', at: Date.now() }

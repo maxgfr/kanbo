@@ -61,14 +61,17 @@ export function ReaderView({ link }: { readonly link: ShareLink }) {
   }
 
   function takeFile(file: File) {
-    void file.text().then((text) => {
+    void (async () => {
       try {
-        setEnvelope(decodeEnvelope(text.trim()))
+        // The read is inside the try too: a file that cannot be read is the
+        // same problem to whoever is looking at this screen as one that cannot
+        // be decoded, and it is the only screen they have.
+        setEnvelope(decodeEnvelope((await file.text()).trim()))
         setError(null)
       } catch (caught) {
         setError(describe(caught))
       }
-    })
+    })()
   }
 
   if (payload) return <SharedBoard payload={payload} />
@@ -97,6 +100,9 @@ export function ReaderView({ link }: { readonly link: ShareLink }) {
               accept=".kanbo-share"
               onChange={(event) => {
                 const file = event.target.files?.[0]
+                // Cleared so a second attempt at the same file is possible
+                // after a first one was refused.
+                event.target.value = ''
                 if (file) takeFile(file)
               }}
             />
@@ -141,23 +147,11 @@ export function ReaderView({ link }: { readonly link: ShareLink }) {
           </Button>
         )}
 
-        {link.kind === 'file' && needsFile && (
-          <div className="kb-field">
-            <label className="kb-field__label" htmlFor="kb-share-file-2">
-              The share file
-            </label>
-            <input
-              id="kb-share-file-2"
-              type="file"
-              className="kb-input"
-              accept=".kanbo-share"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) takeFile(file)
-              }}
-            />
-          </div>
-        )}
+        {/* There was a second, identical file picker here, shown under exactly
+            the same condition as the one above — a file-backed share sets both
+            `needsFile` and `link.kind === 'file'`. Recipients of a large board
+            were asked for the same file twice, with the Open button wedged
+            between the two. */}
 
         {busy && link.kind === 'inline' && <p className="kb-muted">Decrypting…</p>}
 

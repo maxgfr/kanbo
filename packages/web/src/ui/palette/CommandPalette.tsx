@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Icon, type IconName } from '../design/Icon.tsx'
 import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
+import { useDialog } from '../design/useDialog.ts'
 
 /**
  * One box for finding things and doing things.
@@ -21,6 +22,11 @@ export type Command = {
   readonly run: () => void
 }
 
+/** Stable ids, because `aria-activedescendant` points at one by name. */
+function rowId(index: number): string {
+  return `kb-palette-row-${index}`
+}
+
 export type CommandPaletteProps = {
   readonly project: Project
   readonly commands: readonly Command[]
@@ -31,7 +37,11 @@ export type CommandPaletteProps = {
 export function CommandPalette({ project, commands, onOpenItem, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
+  // Set while arrowing, so a pointer resting over the list cannot yank the
+  // selection back the moment the page scrolls under it.
+  const [pointing, setPointing] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { ref: paletteRef, onKeyDown } = useDialog<HTMLDivElement>(onClose)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -65,28 +75,55 @@ export function CommandPalette({ project, commands, onOpenItem, onClose }: Comma
 
   return (
     <>
-      <button type="button" className="kb-panel__scrim" aria-label="Close" onClick={onClose} />
-      <div className="kb-palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <button
+        type="button"
+        className="kb-panel__scrim"
+        aria-label="Close"
+        onClick={onClose}
+        onKeyDown={onKeyDown}
+      />
+      <div
+        ref={paletteRef}
+        className="kb-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
         <div className="kb-palette__field">
           <Icon name="search" size={16} />
+          {/*
+            A combobox rather than a bare input: the rows below are the listbox
+            it owns, and `aria-activedescendant` is how a listbox says which of
+            them is current while focus stays in the field. Without it, arrowing
+            moved a highlight nobody using a screen reader was told about, and
+            Enter opened something they had never been read.
+          */}
           <input
             ref={inputRef}
             className="kb-palette__input"
             value={query}
             placeholder="Search, or type a command…"
             aria-label="Search or run a command"
+            role="combobox"
+            aria-expanded={rows.length > 0}
+            aria-controls="kb-palette-rows"
+            aria-activedescendant={rows.length > 0 ? rowId(clampedCursor) : undefined}
+            autoComplete="off"
             onChange={(event) => {
               setQuery(event.target.value)
               setCursor(0)
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') onClose()
               if (event.key === 'ArrowDown') {
                 event.preventDefault()
+                setPointing(false)
                 setCursor((at) => Math.min(at + 1, rows.length - 1))
               }
               if (event.key === 'ArrowUp') {
                 event.preventDefault()
+                setPointing(false)
                 setCursor((at) => Math.max(at - 1, 0))
               }
               if (event.key === 'Enter') {
@@ -97,7 +134,13 @@ export function CommandPalette({ project, commands, onOpenItem, onClose }: Comma
           />
         </div>
 
-        <div className="kb-palette__rows" role="listbox" aria-label="Results">
+        <div
+          id="kb-palette-rows"
+          className="kb-palette__rows"
+          role="listbox"
+          aria-label="Results"
+          onMouseMove={() => setPointing(true)}
+        >
           {rows.length === 0 && (
             <p className="kb-muted" style={{ padding: 'var(--space-4)', margin: 0 }}>
               Nothing matched.
@@ -105,14 +148,17 @@ export function CommandPalette({ project, commands, onOpenItem, onClose }: Comma
           )}
 
           {rows.map((row, index) => (
-            <button
+            // A div rather than a button: a listbox owns its options through
+            // `aria-activedescendant`, and putting them in the tab order as
+            // well let Tab walk into rows where Escape was never bound.
+            <div
               key={row.kind === 'command' ? row.command.id : row.item.id}
-              type="button"
+              id={rowId(index)}
               role="option"
               aria-selected={index === clampedCursor}
               className="kb-palette__row"
               data-active={index === clampedCursor || undefined}
-              onMouseEnter={() => setCursor(index)}
+              onMouseEnter={() => pointing && setCursor(index)}
               onClick={() => activate(index)}
             >
               {row.kind === 'command' ? (
@@ -150,7 +196,7 @@ export function CommandPalette({ project, commands, onOpenItem, onClose }: Comma
                   })()}
                 </>
               )}
-            </button>
+            </div>
           ))}
         </div>
 

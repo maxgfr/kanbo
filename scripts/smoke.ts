@@ -262,8 +262,18 @@ async function run(browser: Browser): Promise<void> {
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
 
   await strict.getByRole('button', { name: 'Roadmap' }).click()
-  await strict.locator('svg[role="img"]').first().waitFor({ timeout: 5000 })
+  // Asked for by name rather than by counting SVG nodes: the bar has to be a
+  // control something other than a mouse can find, which is the whole reason
+  // the roadmap stopped being a picture with click handlers on it.
+  const bar = strict.getByRole('button', { name: /APL-\d+, .*, due 2026-09-15/ })
+  await bar.first().waitFor({ timeout: 5000 })
   check('the roadmap draws a bar once an item has a date', true)
+
+  await bar.first().focus()
+  await strict.keyboard.press('Enter')
+  await strict.locator('.kb-panel').waitFor({ timeout: 5000 })
+  check('a roadmap bar opens its item from the keyboard', true)
+  await strict.getByRole('button', { name: 'Close', exact: true }).click()
   await shoot(strict, 'roadmap')
 
   await strict.getByRole('button', { name: 'Releases' }).click()
@@ -604,7 +614,107 @@ async function run(browser: Browser): Promise<void> {
 
   await connected.close()
 
+  await modeSwitch(browser)
+  await damagedShare(browser)
   await syncScenario(browser)
+}
+
+/**
+ * Switching mode from the settings panel, end to end.
+ *
+ * The switch is a navigation between two documents, because the policy belongs
+ * to the document rather than to our code. What has to hold is that it is *one*
+ * navigation, that the panel comes back rather than vanishing, and that the
+ * configuration typed just before it survives the trip.
+ */
+async function modeSwitch(browser: Browser): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  watchConsole(page, 'mode switch')
+
+  await page.goto(BASE, { waitUntil: 'networkidle' })
+  await page.locator('#kb-project-name').fill('Gemini')
+  await page.locator('#kb-project-key').fill('GEM')
+  await page.getByRole('button', { name: 'Create the board' }).click()
+  await page.getByRole('button', { name: 'New item' }).waitFor({ timeout: 5000 })
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('dialog', { name: 'Settings' }).waitFor({ timeout: 5000 })
+
+  // A GitLab address, because its API lives under a path the switch used to
+  // drop by storing the origin alone.
+  await page.locator('#kb-remote').fill('https://gitlab.com/api/v4')
+
+  const loads: string[] = []
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) loads.push(new URL(frame.url()).pathname)
+  })
+
+  await page.getByRole('button', { name: 'Repository' }).click()
+  await page.waitForURL(/connect\.html/, { timeout: 5000 })
+  await page.getByRole('dialog', { name: 'Settings' }).waitFor({ timeout: 5000 })
+
+  check(
+    'switching mode loads the other document once, not this one and then that one',
+    loads.length === 1 && loads[0]?.endsWith('/connect.html') === true,
+    loads.join(' → '),
+  )
+  check('the settings panel comes back rather than vanishing', true)
+  check(
+    'the panel says which mode is now running',
+    await page.getByText(/Repository mode is now active/).isVisible(),
+  )
+
+  const stored = await page.evaluate(() => localStorage.getItem('kanbo.sync') ?? '')
+  check(
+    'the forge API keeps its path, so GitLab still answers',
+    (JSON.parse(stored) as { remoteUrl?: string }).remoteUrl === 'https://gitlab.com/api/v4',
+    stored,
+  )
+
+  // And back again, which must land on the strict document.
+  await page.getByRole('button', { name: 'Local' }).click()
+  await page.waitForURL((url) => !url.pathname.endsWith('connect.html'), { timeout: 5000 })
+  await page.getByRole('dialog', { name: 'Settings' }).waitFor({ timeout: 5000 })
+  check('switching back lands on the document that cannot reach the network', true)
+
+  // Escape now closes it — and, unlike before, the marker is spent, so a
+  // reload does not reopen a panel nobody asked for.
+  await page.keyboard.press('Escape')
+  await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'detached', timeout: 5000 })
+  check('the settings panel closes on Escape', true)
+
+  await page.reload({ waitUntil: 'networkidle' })
+  check(
+    'a later reload does not reopen the panel',
+    (await page.getByRole('dialog', { name: 'Settings' }).count()) === 0,
+  )
+
+  await page.close()
+}
+
+/**
+ * A share link cut short on the way here.
+ *
+ * `#s=` with nothing after it satisfied neither branch of the boot, so the
+ * recipient got a white page: no text, no error, nothing in the console. That
+ * is the one failure the share dialog warns the *sender* about, and it had no
+ * handling at the receiving end at all.
+ */
+async function damagedShare(browser: Browser): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  watchConsole(page, 'damaged share')
+
+  await page.goto(`${BASE}/#s=`, { waitUntil: 'networkidle' })
+  const text = (await page.locator('body').innerText()).trim()
+
+  check('a link truncated to nothing says so rather than rendering a blank page', text.length > 0)
+  check('and it says what to do about it', /incomplete/i.test(text), text.slice(0, 120))
+  check(
+    "and it does not open the reader's own board under someone else's link",
+    (await page.locator('.kb-shell').count()) === 0,
+  )
+
+  await page.close()
 }
 
 /**

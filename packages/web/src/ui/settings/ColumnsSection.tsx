@@ -190,7 +190,16 @@ function ColumnRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: status.id,
   })
-  const [moveTo, setMoveTo] = useState(destinations[0]?.id ?? '')
+  // Held as a choice rather than as an id, so a destination that has since been
+  // deleted falls back to a real one. Initialised once and never reconciled, it
+  // kept pointing at a column that was gone while the select displayed the
+  // first surviving option — and the reducer then refused the move, so the
+  // cards did not go where the screen said they would.
+  const [chosen, setMoveTo] = useState<string | null>(null)
+  const moveTo =
+    chosen !== null && destinations.some((destination) => destination.id === chosen)
+      ? chosen
+      : (destinations[0]?.id ?? '')
 
   function update(patch: Partial<Status>) {
     void dispatch({ kind: 'status.upsert', status: { ...status, ...patch } })
@@ -309,10 +318,9 @@ function ColumnRow({
           <Button
             variant="danger"
             onClick={() => {
-              const target = count > 0 ? moveTo : (destinations[0]?.id ?? '')
-              if (!target) return
+              if (!moveTo) return
               onDeleting(false)
-              void dispatch({ kind: 'status.delete', statusId: status.id, moveToId: target })
+              void dispatch({ kind: 'status.delete', statusId: status.id, moveToId: moveTo })
             }}
           >
             Delete column
