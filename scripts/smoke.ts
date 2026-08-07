@@ -168,6 +168,41 @@ async function run(browser: Browser): Promise<void> {
   check('the table view renders', (await strict.locator('.kb-table tbody tr').count()) >= 1)
   await shoot(strict, 'table')
 
+  await strict.getByRole('button', { name: 'Backlog' }).click()
+  await strict.locator('.kb-card').first().waitFor({ timeout: 5000 })
+  check('the backlog lists the item', (await strict.locator('.kb-card').count()) >= 1)
+  await shoot(strict, 'backlog')
+
+  // Sprints: create one, then confirm the burndown is drawn from the board's
+  // own history rather than anything typed in.
+  await strict.getByRole('button', { name: 'Sprints' }).click()
+  await strict.getByRole('button', { name: 'Start a sprint' }).click()
+  await strict.getByLabel('Sprint goal').waitFor({ timeout: 5000 })
+  check(
+    'a sprint shows a burndown and a velocity chart',
+    (await strict.locator('svg[role="img"]').count()) >= 2,
+  )
+  await shoot(strict, 'sprint')
+
+  // The roadmap deliberately shows nothing without dates; give the item one.
+  await strict.getByRole('button', { name: 'Backlog' }).click()
+  await strict.locator('.kb-button--quiet').filter({ hasText: 'APL-' }).first().click()
+  await strict.locator('#kb-due').fill('2026-09-15')
+  await strict.getByRole('button', { name: 'Close', exact: true }).click()
+
+  await strict.getByRole('button', { name: 'Roadmap' }).click()
+  await strict.locator('svg[role="img"]').first().waitFor({ timeout: 5000 })
+  check('the roadmap draws a bar once an item has a date', true)
+  await shoot(strict, 'roadmap')
+
+  await strict.getByRole('button', { name: 'Metrics' }).click()
+  await strict.waitForTimeout(300)
+  check(
+    'the metrics view computes charts from the log',
+    (await strict.locator('svg[role="img"]').count()) >= 2,
+  )
+  await shoot(strict, 'metrics')
+
   // ---------------------------------------------------------------- light
   await strict.getByRole('button', { name: 'Settings' }).click()
   await strict.getByRole('button', { name: 'Light' }).click()

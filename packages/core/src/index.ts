@@ -13,3 +13,4 @@ export * from './ops/author'
 
 export * from './views/query'
 export * from './markdown/parse'
+export * from './metrics/flow'

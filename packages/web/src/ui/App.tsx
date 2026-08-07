@@ -3,19 +3,27 @@ import { useEffect, useState } from 'react'
 
 import { createPorts, seedOperations } from '../state/store'
 import { useDispatch, useProject } from '../state/useStore'
+import { BacklogView } from './backlog/BacklogView'
 import { BoardEmpty, BoardView } from './board/BoardView'
 import { Button } from './design/Button'
 import { Icon, type IconName } from './design/Icon'
 import { ItemPanel } from './item/ItemPanel'
+import { MetricsView } from './metrics/MetricsView'
+import { RoadmapView } from './roadmap/RoadmapView'
 import { SettingsPanel } from './settings/SettingsPanel'
+import { SprintView } from './sprint/SprintView'
 import { TableView } from './table/TableView'
 import { applyTheme } from './theme'
 
-type ViewKey = 'board' | 'table'
+type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'metrics'
 
 const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
   { key: 'board', label: 'Board', icon: 'board' },
   { key: 'table', label: 'Table', icon: 'table' },
+  { key: 'backlog', label: 'Backlog', icon: 'backlog' },
+  { key: 'sprint', label: 'Sprints', icon: 'calendar' },
+  { key: 'roadmap', label: 'Roadmap', icon: 'roadmap' },
+  { key: 'metrics', label: 'Metrics', icon: 'metrics' },
 ]
 
 export function App() {
@@ -118,8 +126,16 @@ export function App() {
           <BoardEmpty onAdd={() => void addItem()} />
         ) : view === 'board' ? (
           <BoardView project={project} onOpen={setOpenItem} onAdd={(id) => void addItem(id)} />
-        ) : (
+        ) : view === 'table' ? (
           <TableView project={project} onOpen={setOpenItem} />
+        ) : view === 'backlog' ? (
+          <BacklogView project={project} onOpen={setOpenItem} />
+        ) : view === 'sprint' ? (
+          <SprintView project={project} onOpen={setOpenItem} />
+        ) : view === 'roadmap' ? (
+          <RoadmapView project={project} onOpen={setOpenItem} />
+        ) : (
+          <MetricsView project={project} />
         )}
       </main>
 
