@@ -1,0 +1,13 @@
+{
+  "name": "@kanbo/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Kanbo domain model. Pure TypeScript: no browser, no Node, no I/O.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./policy": "./src/policy.ts"
+  },
+  "dependencies": {}
+}

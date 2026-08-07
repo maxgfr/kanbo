@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "types": ["vitest/globals"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@kanbo/core": ["packages/core/src/index.ts"],
+      "@kanbo/core/*": ["packages/core/src/*"],
+      "@kanbo/adapters-web": ["packages/adapters-web/src/index.ts"],
+      "@kanbo/adapters-web/*": ["packages/adapters-web/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*", "packages/*/*.config.ts", "scripts/**/*", "vitest.config.ts"],
+  "exclude": ["**/dist", "**/node_modules"]
+}

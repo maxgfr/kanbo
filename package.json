@@ -1,0 +1,31 @@
+{
+  "name": "kanbo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @kanbo/web dev",
+    "build": "pnpm --filter @kanbo/web build",
+    "preview": "pnpm --filter @kanbo/web preview",
+    "typecheck": "tsc --build",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:network": "node scripts/check-network-boundary.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "oxlint": "^1.77.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@kanbo/adapters-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Browser implementations of the @kanbo/core ports: IndexedDB, WebCrypto, fetch.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@kanbo/core": "workspace:*"
+  }
+}

@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+
+# esbuild's install script marks its platform binary executable; Vite cannot
+# build without it.
+onlyBuiltDependencies:
+  - esbuild

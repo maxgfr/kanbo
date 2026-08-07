@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn"],
+  "env": { "browser": true, "es2024": true },
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    // The automatic JSX runtime (jsx: "react-jsx") imports the factory itself,
+    // so React does not need to be in scope.
+    "react/react-in-jsx-scope": "off"
+  }
+}
