@@ -45,6 +45,8 @@ Three things keep that honest, and CI fails if any of them slips:
 
 **⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the CLI runs.
 
+**Encrypted sharing** — hand someone a read-only copy of the board as a link. It is encrypted in the page with AES-GCM-256 and nothing is uploaded: the key travels in the URL fragment, which browsers never send to the host, so whoever serves Kanbo cannot read what the link unlocks. Optionally protect it with a passphrase, derived with Argon2id, and send that by another route. A share cannot be revoked and does not expire — it is a copy, there is nobody to enforce an expiry, and the app says so rather than implying otherwise.
+
 **Markdown** descriptions, so issue bodies round-trip exactly. Rendered as elements from a tree of values — there is no `dangerouslySetInnerHTML` anywhere in Kanbo, and no sanitiser to get wrong.
 
 ## From the terminal

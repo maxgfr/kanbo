@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@kanbo/core": "workspace:*"
+    "@kanbo/core": "workspace:*",
+    "hash-wasm": "^4.12.0"
   }
 }

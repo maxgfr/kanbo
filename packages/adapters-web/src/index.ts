@@ -10,3 +10,4 @@
 export { browserStorage, wipeEverything } from './storage.ts'
 export { browserClock, browserRandom, deviceId } from './clock.ts'
 export { browserCrypto, storeToken, readToken } from './crypto.ts'
+export { encryptShare, decryptShare, measureArgonCost, type ShareResult } from './share.ts'

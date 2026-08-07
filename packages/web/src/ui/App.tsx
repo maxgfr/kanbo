@@ -15,6 +15,7 @@ import { type Command, CommandPalette } from './palette/CommandPalette.tsx'
 import { ReleasesView } from './releases/ReleasesView.tsx'
 import { RoadmapView } from './roadmap/RoadmapView.tsx'
 import { SettingsPanel } from './settings/SettingsPanel.tsx'
+import { ShareDialog } from './share/ShareDialog.tsx'
 import { SprintView } from './sprint/SprintView.tsx'
 import { TableView } from './table/TableView.tsx'
 import { applyTheme } from './theme.ts'
@@ -38,6 +39,7 @@ export function App() {
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     applyTheme()
@@ -88,6 +90,7 @@ export function App() {
           </span>
         </Button>
         <SyncButton />
+        <Button variant="quiet" icon="link" aria-label="Share" onClick={() => setShareOpen(true)} />
         <Button variant="primary" icon="plus" onClick={() => void addItem()}>
           New item
         </Button>
@@ -170,6 +173,7 @@ export function App() {
         <ItemPanel project={project} itemId={openItem} onClose={() => setOpenItem(null)} />
       )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {shareOpen && <ShareDialog project={project} onClose={() => setShareOpen(false)} />}
       {paletteOpen && (
         <CommandPalette
           project={project}

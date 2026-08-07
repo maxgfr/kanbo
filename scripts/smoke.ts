@@ -237,7 +237,100 @@ async function run(browser: Browser): Promise<void> {
   await strict.getByRole('button', { name: 'Dark' }).click()
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
 
+  // ---------------------------------------------------------------- share
+  // The claim under test: a share is encrypted in the page, the key rides in
+  // the fragment the browser never sends, and Argon2id runs under a policy
+  // that forbids fetching anything — including its own wasm module.
+  await strict.getByRole('button', { name: 'Share' }).click()
+  await strict.getByRole('dialog', { name: 'Share this board' }).waitFor({ timeout: 5000 })
+  await strict.locator('#kb-share-note').fill('Have a look')
+  await strict.getByRole('button', { name: 'Create the share' }).click()
+  await strict.getByLabel('Share link').waitFor({ timeout: 10_000 })
+
+  const linkShare = await strict.getByLabel('Share link').inputValue()
+  check(
+    'a share link carries its key in the fragment',
+    linkShare.includes('#s='),
+    linkShare.slice(0, 60),
+  )
+  check(
+    'the key is never in the path or the query, which a host would see',
+    new URL(linkShare).search === '' && !new URL(linkShare).pathname.includes('s='),
+  )
+  check(
+    'a share always opens on the document that cannot reach the network',
+    new URL(linkShare).pathname.endsWith('index.html'),
+    new URL(linkShare).pathname,
+  )
+  await shoot(strict, 'share')
+
+  // Now a passphrase share, which is what actually exercises Argon2id.
+  await strict.getByRole('button', { name: 'Make another' }).click()
+  await strict.getByText('Protect with a passphrase').click()
+  await strict.locator('#kb-share-new-passphrase').fill('correct horse battery staple')
+  await strict.getByRole('button', { name: 'Create the share' }).click()
+  await strict.getByLabel('Share link').waitFor({ timeout: 30_000 })
+  const passShare = await strict.getByLabel('Share link').inputValue()
+  check('Argon2id runs under connect-src none', passShare.includes('#s=p.'), passShare.slice(0, 40))
+
   await strict.close()
+
+  // A recipient is a different browser profile with no vault of their own.
+  const reader = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  watchConsole(reader, 'reader')
+  await reader.goto(linkShare, { waitUntil: 'networkidle' })
+  await reader.locator('.kb-card').first().waitFor({ timeout: 15_000 })
+  check(
+    'a recipient opens the board from the link alone',
+    (await reader.locator('.kb-card').count()) >= 1,
+  )
+  check(
+    'the copy is labelled as one, and read-only',
+    (await reader.getByText('read-only copy').count()) === 1,
+  )
+  check(
+    'the reader never opened a vault of its own',
+    await reader.evaluate(async () =>
+      (await indexedDB.databases()).every((db) => db.name !== 'kanbo'),
+    ),
+  )
+  await shoot(reader, 'share-reader')
+  await reader.close()
+
+  // A tampered link must fail closed, and say so.
+  const tampered = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  await tampered.goto(linkShare.slice(0, -24), { waitUntil: 'networkidle' })
+  await tampered.waitForTimeout(1500)
+  const body = (await tampered.locator('body').textContent()) ?? ''
+  check(
+    'a truncated or edited link is refused rather than half-read',
+    /damaged|truncated|does not open/i.test(body),
+    body.slice(0, 120),
+  )
+  await tampered.close()
+
+  // The passphrase share must not open without the passphrase.
+  const guard = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  await guard.goto(passShare, { waitUntil: 'networkidle' })
+  await guard.locator('#kb-share-passphrase').waitFor({ timeout: 5000 })
+  check(
+    'a passphrase share shows no board until the passphrase is given',
+    (await guard.locator('.kb-card').count()) === 0,
+  )
+
+  await guard.locator('#kb-share-passphrase').fill('wrong passphrase entirely')
+  await guard.getByRole('button', { name: 'Open the board' }).click()
+  await guard.waitForTimeout(4000)
+  check(
+    'a wrong passphrase is refused',
+    /does not open this share/i.test((await guard.locator('body').textContent()) ?? ''),
+  )
+
+  await guard.locator('#kb-share-passphrase').fill('correct horse battery staple')
+  await guard.getByRole('button', { name: 'Open the board' }).click()
+  await guard.locator('.kb-card').first().waitFor({ timeout: 30_000 })
+  check('the right passphrase opens it', (await guard.locator('.kb-card').count()) >= 1)
+  await guard.close()
 
   // ------------------------------------------------------------- connected
   // The mode has to be stored before the document loads. Without it the boot
