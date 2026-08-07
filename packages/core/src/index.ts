@@ -3,6 +3,7 @@ export * from './ports/index.ts'
 
 export * from './model/types.ts'
 export * from './model/project.ts'
+export * from './model/hierarchy.ts'
 
 export * from './order/fractional.ts'
 

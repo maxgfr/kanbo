@@ -24,22 +24,34 @@ export const EMPTY_PROJECT: Project = {
 }
 
 /**
- * The four columns a software team starts with.
+ * The columns a software team starts with.
  *
- * Two of them are `in-progress`, which is the point: "In Review" is work that
- * has started and has not finished, and a category is what tells the metrics
- * so. A team that renames or adds columns keeps working metrics for free.
+ * Four of the six are `in-progress`, which is the point: "In Review" and
+ * "Blocked" are work that has started and has not finished, and the category is
+ * what tells the metrics so. Parking a card in Blocked keeps its clock running,
+ * which is correct — waiting is part of cycle time, and a board that stopped
+ * counting it would be the one measurement a team most wants to hide from
+ * itself.
+ *
+ * This is a starting point, not a schema: every one of these can be renamed,
+ * recoloured, reordered or deleted from the settings panel, and the metrics
+ * follow because they read the category rather than the name.
+ *
+ * The caller supplies the id factory rather than an array of ids, so the set can
+ * grow or shrink here without every call site having to count along with it.
  */
-export function defaultStatuses(ids: readonly string[]): readonly Status[] {
+export function defaultStatuses(newId: () => string): readonly Status[] {
   const spec: readonly (readonly [string, StatusCategory, string])[] = [
     ['Backlog', 'todo', '#6b7280'],
+    ['Ready', 'todo', '#0891b2'],
     ['In Progress', 'in-progress', '#2563eb'],
     ['In Review', 'in-progress', '#7c3aed'],
+    ['Blocked', 'in-progress', '#dc2626'],
     ['Done', 'done', '#16a34a'],
   ]
   const orders = keysBetween(null, null, spec.length)
   return spec.map(([name, category, color], index) => ({
-    id: ids[index] ?? `status-${index}`,
+    id: newId(),
     name,
     category,
     order: orders[index] ?? FIRST_KEY,

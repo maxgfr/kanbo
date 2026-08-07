@@ -129,12 +129,7 @@ export function createStore(): Store {
  * across — an empty board with no columns is a dead end, not a clean slate.
  */
 export function seedOperations(ports: Ports, name: string, key: string): OperationBody[] {
-  const statuses = defaultStatuses([
-    ports.random.id(),
-    ports.random.id(),
-    ports.random.id(),
-    ports.random.id(),
-  ])
+  const statuses = defaultStatuses(() => ports.random.id())
   const viewOrders = keysBetween(null, null, 3)
 
   const views: View[] = [

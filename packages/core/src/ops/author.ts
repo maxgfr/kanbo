@@ -110,6 +110,23 @@ export function orderForDrop(
 }
 
 /**
+ * Where a column lands when dragged to position `index`.
+ *
+ * The same removal trick as `orderForDrop`, for the same reason: a column read
+ * against a list that still contains it computes its new key from itself and
+ * does not move.
+ */
+export function orderForStatusReorder(project: Project, statusId: string, index: number): string {
+  const others = project.statuses.filter((status) => status.id !== statusId).toSorted(byOrder)
+
+  const clamped = Math.max(0, Math.min(index, others.length))
+  const before = clamped > 0 ? (others[clamped - 1]?.order ?? null) : null
+  const after = others[clamped]?.order ?? null
+
+  return keyBetween(before, after)
+}
+
+/**
  * Would linking `fromId` → `toId` create a cycle?
  *
  * Checked before the operation is emitted, not after: a blocking cycle makes

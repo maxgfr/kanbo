@@ -82,6 +82,28 @@ try {
   const csv = await kanbo(home, 'export', '--csv')
   check('the CSV export resolves names rather than ids', csv.includes('In Progress'), csv)
 
+  // Columns are ordinary domain entities, so the terminal shapes the board with
+  // the same operation the settings panel emits. Kept last, and given its own
+  // item: everything above reads the four columns a project starts with, and a
+  // check that rearranges the board underneath its neighbours tests them as
+  // much as itself.
+  await kanbo(home, 'column', 'add', 'Deployed', 'done')
+  const columns = await kanbo(home, 'columns')
+  check(
+    'the CLI adds a column, and carries its category with it',
+    /Deployed\s+done/.test(columns),
+    columns,
+  )
+
+  await kanbo(home, 'add', 'Cut the release')
+  await kanbo(home, 'move', 'APL-3', 'Deployed')
+  const shipped = await kanbo(home, 'search', 'is:closed')
+  check(
+    'a card in a column the team invented still counts as closed',
+    shipped.includes('APL-3'),
+    shipped,
+  )
+
   // The point of the whole exercise: the domain must never have reached for a
   // browser global, or none of the above could have run at all.
   const core = await readFile(join(ROOT, 'packages/core/src/index.ts'), 'utf8')

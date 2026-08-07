@@ -6,9 +6,11 @@ import {
   ageInProgress,
   firstLine,
   itemById,
+  subtreeProgress,
 } from '@kanbo/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { KeyboardEventHandler } from 'react'
 
 import { Icon } from '../design/Icon.tsx'
 
@@ -84,6 +86,8 @@ export function CardFace({ project, item, today, delivery, showIteration }: Card
   const age = ageInProgress(item, Date.now())
   const days = age === null ? null : Math.floor(age / DAY)
 
+  const progress = subtreeProgress(project, item.id)
+
   return (
     <>
       <div className="kb-card__top">
@@ -135,11 +139,26 @@ export function CardFace({ project, item, today, delivery, showIteration }: Card
         days !== null ||
         overdue ||
         people.length > 0 ||
+        progress.total > 0 ||
         iteration !== undefined) && (
         <div className="kb-card__foot">
           {item.estimate !== null && (
             <span className="kb-card__points" title={`${item.estimate} points`}>
               {item.estimate}
+            </span>
+          )}
+
+          {/* Only when there are children. A card that carried an empty "0/0"
+              would spend the board's attention on the absence of a thing. */}
+          {progress.total > 0 && (
+            <span
+              className="kb-card__flag kb-muted"
+              title={`${progress.done} of ${progress.total} sub-issues done`}
+            >
+              <Icon name="epic" size={11} />
+              <span className="data">
+                {progress.done}/{progress.total}
+              </span>
             </span>
           )}
 
@@ -236,6 +255,10 @@ export function Card({ project, item, today, delivery, showIteration, onOpen }: 
     data: { statusId: item.statusId },
   })
 
+  // dnd-kit hands its synthetic listeners over as a bag of bare `Function`s;
+  // this is the one we compose with rather than replace.
+  const onKeyDownDrag = listeners?.['onKeyDown'] as KeyboardEventHandler<HTMLDivElement> | undefined
+
   const blocked = blockedBy(project, item).length > 0
 
   return (
@@ -245,17 +268,25 @@ export function Card({ project, item, today, delivery, showIteration, onOpen }: 
       data-dragging={isDragging || undefined}
       data-blocked={blocked || undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      // Enter and Space are claimed by dnd-kit's keyboard sensor to pick a card
-      // up, so opening it needs its own key.
-      onDoubleClick={() => onOpen(item.id)}
+      // A click opens the card, the same gesture every other view uses. The
+      // pointer sensor's activation distance is what makes this safe: dnd-kit
+      // only swallows the trailing click once a drag has actually started, so a
+      // real drag ends without opening anything.
+      onClick={() => onOpen(item.id)}
+      {...attributes}
+      {...listeners}
+      // After the listeners, deliberately. dnd-kit's keyboard sensor supplies an
+      // onKeyDown of its own, and a handler declared before the spread would be
+      // overwritten by it rather than merged — which is how the O shortcut
+      // promised in the label below came to do nothing at all.
       onKeyDown={(event) => {
+        onKeyDownDrag?.(event)
+        if (event.defaultPrevented) return
         if (event.key === 'o' || event.key === 'O') {
           event.preventDefault()
           onOpen(item.id)
         }
       }}
-      {...attributes}
-      {...listeners}
       aria-roledescription="draggable card"
       aria-label={`${item.ref}. ${item.title}. Press space to pick up, O to open.`}
     >

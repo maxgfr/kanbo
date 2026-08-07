@@ -1,25 +1,11 @@
-import {
-  type Iteration,
-  type Project,
-  averageVelocity,
-  burndown,
-  byOrder,
-  isoDay,
-  keyBetween,
-  velocity,
-} from '@kanbo/core'
+import { type Project, averageVelocity, burndown, byOrder, isoDay, velocity } from '@kanbo/core'
 import { useState } from 'react'
 
-import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
 import { BarChart, Legend, LineChart, type Series } from '../charts/Charts.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
-
-function nextFortnight(): { startsAt: string; endsAt: string } {
-  const now = Date.now()
-  return { startsAt: isoDay(now), endsAt: isoDay(now + 13 * 86_400_000) }
-}
+import { SprintSetup, createIteration, fortnightAfter } from './SprintSetup.tsx'
 
 export function SprintView({
   project,
@@ -38,31 +24,26 @@ export function SprintView({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = iterations.find((it) => it.id === selectedId) ?? current
 
-  async function createIteration() {
-    const ports = createPorts()
-    const last = iterations.at(-1)
-    const iteration: Iteration = {
-      id: ports.random.id(),
-      name: `Sprint ${iterations.length + 1}`,
-      goal: '',
-      ...nextFortnight(),
-      capacity: null,
-      order: keyBetween(last?.order ?? null, null),
-    }
-    await dispatch({ kind: 'iteration.upsert', iteration })
-    setSelectedId(iteration.id)
+  async function startSprint() {
+    const made = await createIteration(project, dispatch)
+    setSelectedId(made.id)
   }
 
   if (!selected) {
+    const { startsAt, endsAt } = fortnightAfter(null)
     return (
       <div className="kb-empty">
         <Icon name="calendar" size={28} />
         <p className="kb-empty__title">No sprints yet</p>
         <p className="kb-empty__body">
-          A sprint is a date range with a goal. Once one exists, its burndown and your velocity are
-          computed from the board's own history.
+          A sprint is a date range with a goal. This one will run{' '}
+          <span className="data">
+            {startsAt} → {endsAt}
+          </span>{' '}
+          and you can rename it or move either date afterwards. Its burndown and your velocity are
+          then computed from the board's own history — nothing else to fill in.
         </p>
-        <Button variant="primary" icon="plus" onClick={() => void createIteration()}>
+        <Button variant="primary" icon="plus" onClick={() => void startSprint()}>
           Start a sprint
         </Button>
       </div>
@@ -97,28 +78,7 @@ export function SprintView({
           maxWidth: '84rem',
         }}
       >
-        <header className="kb-row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <select
-            className="kb-select"
-            style={{ width: 'auto' }}
-            value={selected.id}
-            aria-label="Sprint"
-            onChange={(event) => setSelectedId(event.target.value)}
-          >
-            {iterations.map((iteration) => (
-              <option key={iteration.id} value={iteration.id}>
-                {iteration.name}
-              </option>
-            ))}
-          </select>
-          <span className="data kb-muted">
-            {selected.startsAt} → {selected.endsAt}
-          </span>
-          <span className="kb-spacer" />
-          <Button icon="plus" onClick={() => void createIteration()}>
-            New sprint
-          </Button>
-        </header>
+        <SprintSetup project={project} selected={selected} onSelect={setSelectedId} />
 
         <div className="kb-field">
           <label className="kb-field__label" htmlFor="kb-goal">

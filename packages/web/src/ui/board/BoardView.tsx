@@ -2,7 +2,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   type DragEndEvent,
   type DragStartEvent,
   useDroppable,
@@ -27,6 +28,7 @@ import { useMemo, useState } from 'react'
 import { useDispatch } from '../../state/useStore.ts'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
+import { AddColumn } from './AddColumn.tsx'
 import { Card, CardFace } from './Card.tsx'
 import { boardCollisionDetection } from './collision.ts'
 import { boardKeyboardCoordinates } from './keyboard.ts'
@@ -99,7 +101,7 @@ function Column({
   const over = exceedsWipLimit(project, status.id)
 
   return (
-    <section className="kb-column" aria-label={status.name}>
+    <section id={`kb-column-${status.id}`} className="kb-column" aria-label={status.name}>
       <header className="kb-column__header">
         <span
           aria-hidden
@@ -173,12 +175,21 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
   // default is a board that loses it. The current sprint is one click away.
   const [sprint, setSprint] = useState<SprintFilter>(null)
 
-  // The pointer sensor needs a small activation distance or a click to open a
-  // card registers as a one-pixel drag. The keyboard sensor is not an
-  // accessibility afterthought: a board only reachable by mouse is unusable for
-  // part of every team.
+  // Three sensors rather than one pointer sensor, because a mouse and a finger
+  // disagree about what "I meant to drag that" looks like.
+  //
+  // A mouse says it with distance: a few pixels of travel are unambiguous, and
+  // anything shorter is a click meant to open the card. A finger cannot say it
+  // that way — every scroll of a column starts as a few pixels of travel over a
+  // card — so touch says it with time instead: hold briefly to pick up, tap to
+  // open, and swipe scrolls the board as it always did. The tolerance lets a
+  // thumb wobble during the hold without cancelling the pick-up.
+  //
+  // The keyboard sensor is not an accessibility afterthought: a board only
+  // reachable by mouse is unusable for part of every team.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: boardKeyboardCoordinates }),
   )
 
@@ -339,6 +350,8 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
             onAdd={onAdd}
           />
         ))}
+
+        <AddColumn />
       </div>
 
       {/*

@@ -2,6 +2,7 @@ import {
   ISSUE_FIELD,
   type OperationBody,
   type RemoteIssue,
+  byOrder,
   hasIssues,
   newItem,
   operationsForImport,
@@ -40,8 +41,13 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
   const doneStatuses = new Set(
     project.statuses.filter((status) => status.category === 'done').map((status) => status.id),
   )
-  const backlog = project.statuses.find((status) => status.category === 'todo')
-  const done = project.statuses.find((status) => status.category === 'done')
+  // Sorted before choosing, because a team can have several todo and several
+  // done columns. Unsorted, the landing column for an imported issue would be
+  // whichever status happened to be created first — invisible on screen, and
+  // liable to change the day someone reorders the board.
+  const inOrder = project.statuses.toSorted(byOrder)
+  const backlog = inOrder.find((status) => status.category === 'todo')
+  const done = inOrder.find((status) => status.category === 'done')
 
   let issues: readonly RemoteIssue[]
   try {

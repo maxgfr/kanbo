@@ -10,24 +10,34 @@ import {
 } from '@kanbo/core'
 import { useEffect, useRef, useState } from 'react'
 
+import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
 import { blockedBy } from '../board/Card.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'
+import { ItemComments } from './ItemComments.tsx'
+import { ItemFields } from './ItemFields.tsx'
 import { ItemHistory } from './History.tsx'
+import { SubIssues } from './SubIssues.tsx'
+import { Select, TokenPicker } from './fields.tsx'
 import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 
 const TYPES: readonly ItemType[] = ['epic', 'story', 'task', 'bug', 'spike', 'chore']
 const PRIORITIES: readonly Priority[] = ['p0', 'p1', 'p2', 'p3', 'p4']
 
+/** Kept away from the signal colours, which mean state rather than category. */
+const LABEL_COLOURS = ['#6b7280', '#0891b2', '#7c3aed', '#db2777', '#ca8a04', '#0d9488']
+
 export type ItemPanelProps = {
   readonly project: Project
   readonly itemId: string
   readonly onClose: () => void
+  /** Opening a relative — a parent, a child — replaces what is on screen. */
+  readonly onOpen: (itemId: string) => void
 }
 
-export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
+export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) {
   const dispatch = useDispatch()
   const item = itemById(project, itemId)
   const [editingBody, setEditingBody] = useState(false)
@@ -157,7 +167,7 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
               />
             </div>
             <Select
-              label="Iteration"
+              label="Sprint"
               value={item.iterationId ?? ''}
               options={[
                 ['', 'None'],
@@ -165,7 +175,46 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
               ]}
               onChange={(iterationId) => set({ iterationId: iterationId || null })}
             />
+            <Select
+              label="Release"
+              value={item.milestoneId ?? ''}
+              options={[
+                ['', 'None'],
+                ...project.milestones.toSorted(byOrder).map((m) => [m.id, m.name] as const),
+              ]}
+              onChange={(milestoneId) => set({ milestoneId: milestoneId || null })}
+            />
           </div>
+
+          <TokenPicker
+            label="Assignees"
+            available={project.members}
+            selected={item.assignees}
+            placeholder="Add someone…"
+            onChange={(assignees) => set({ assignees })}
+            onCreate={(name) => {
+              const member = { id: createPorts().random.id(), name, handle: null }
+              void dispatch({ kind: 'member.upsert', member })
+              return member.id
+            }}
+          />
+
+          <TokenPicker
+            label="Labels"
+            available={project.labels}
+            selected={item.labels}
+            placeholder="Add a label…"
+            onChange={(labels) => set({ labels })}
+            onCreate={(name) => {
+              const label = {
+                id: createPorts().random.id(),
+                name,
+                color: LABEL_COLOURS[project.labels.length % LABEL_COLOURS.length] ?? '#6b7280',
+              }
+              void dispatch({ kind: 'label.upsert', label })
+              return label.id
+            }}
+          />
 
           <div className="kb-field">
             <div className="kb-row">
@@ -199,7 +248,13 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
             )}
           </div>
 
+          <ItemFields project={project} item={item} />
+
+          <SubIssues project={project} item={item} onOpen={onOpen} />
+
           <DependencyEditor project={project} item={item} />
+
+          <ItemComments project={project} itemId={item.id} />
 
           <ItemHistory project={project} itemId={item.id} />
 
@@ -213,6 +268,18 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
                 : ''}
             </span>
             <span className="kb-spacer" />
+            {/* Archiving is the answer most of the time: the board stops showing
+                it, the history keeps it, and `is:archived` finds it again.
+                Delete is beside it rather than instead of it. */}
+            <Button
+              icon="archive"
+              onClick={() => {
+                set({ archived: !item.archived })
+                if (!item.archived) onClose()
+              }}
+            >
+              {item.archived ? 'Unarchive' : 'Archive'}
+            </Button>
             <Button
               variant="danger"
               icon="trash"
@@ -227,39 +294,6 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
         </div>
       </aside>
     </>
-  )
-}
-
-function Select({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  readonly label: string
-  readonly value: string
-  readonly options: readonly (readonly [string, string])[]
-  readonly onChange: (value: string) => void
-}) {
-  const id = `kb-${label.toLowerCase()}`
-  return (
-    <div className="kb-field">
-      <label className="kb-field__label" htmlFor={id}>
-        {label}
-      </label>
-      <select
-        id={id}
-        className="kb-select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map(([key, text]) => (
-          <option key={key} value={key}>
-            {text}
-          </option>
-        ))}
-      </select>
-    </div>
   )
 }
 

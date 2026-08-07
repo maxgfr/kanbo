@@ -12,6 +12,9 @@ import { probe } from '../../net/transport.ts'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { setTheme, type Theme, currentTheme } from '../theme.ts'
+import { ColumnsSection } from './ColumnsSection.tsx'
+import { ProjectSection } from './ProjectSection.tsx'
+import { FieldsSection, LabelsSection, MembersSection } from './VocabularySections.tsx'
 
 export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const [settings, setSettings] = useState(readSyncSettings)
@@ -150,6 +153,16 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
               )}
             </div>
           </section>
+
+          <ProjectSection />
+
+          <ColumnsSection />
+
+          <LabelsSection />
+
+          <MembersSection />
+
+          <FieldsSection />
 
           <PortabilitySection />
 

@@ -58,6 +58,7 @@ const KNOWN = new Set([
   'sprint',
   'iteration',
   'milestone',
+  'parent',
   'is',
   'has',
   'points',
@@ -82,13 +83,21 @@ function matchesQualifier(
 
   switch (token.key) {
     case 'status': {
-      const status = project.statuses.find(
-        (candidate) =>
-          candidate.id === token.value ||
-          candidate.name.toLowerCase().replaceAll(' ', '-') === value ||
-          candidate.category === value,
+      // Asked of the item's own column rather than by hunting the project for a
+      // column the word might mean. Searching first and comparing second was
+      // the bug: `status:in-progress` found one matching column and stopped, so
+      // a team running In Progress, In Review and Blocked saw a third of its
+      // work in progress. Worse, the word is genuinely ambiguous — "in-progress"
+      // is both a category and the slug of a column most boards have — and
+      // there is no reading of it under which the other columns should vanish.
+      const status = project.statuses.find((candidate) => candidate.id === item.statusId)
+      if (!status) return false
+
+      return (
+        status.id === token.value ||
+        status.name.toLowerCase().replaceAll(' ', '-') === value ||
+        status.category === value
       )
-      return status ? item.statusId === status.id : false
     }
     case 'type':
       return item.type === value
@@ -127,6 +136,20 @@ function matchesQualifier(
         (m) => m.id === token.value || m.name.toLowerCase() === value,
       )
       return named !== undefined && item.milestoneId === named.id
+    }
+    case 'parent': {
+      // Answers the question `has:parent` could only ask in general: which
+      // items sit under this one. A reference is what a person has in front of
+      // them, so it is matched first, then an id, then the title.
+      if (value === 'none') return item.parentId === null
+      if (item.parentId === null) return false
+      const named = project.items.find(
+        (candidate) =>
+          candidate.id === token.value ||
+          candidate.ref.toLowerCase() === value ||
+          candidate.title.toLowerCase() === value,
+      )
+      return named !== undefined && item.parentId === named.id
     }
     case 'is':
       switch (value) {
@@ -232,6 +255,7 @@ export const QUALIFIERS: readonly { readonly key: string; readonly hint: string 
   { key: 'label', hint: 'a label name' },
   { key: 'sprint', hint: 'a sprint name, current, or none' },
   { key: 'milestone', hint: 'a milestone name, or none' },
+  { key: 'parent', hint: 'a reference like KAN-4, or none' },
   { key: 'is', hint: 'blocked, open, closed, started, overdue, archived' },
   { key: 'has', hint: 'estimate, assignee, due, parent' },
   { key: 'points', hint: 'a number, or >3 / <=8' },

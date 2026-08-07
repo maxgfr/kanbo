@@ -137,7 +137,31 @@ export function App() {
             const count = active.filter((item) => item.statusId === status.id).length
             const over = status.wipLimit !== null && count > status.wipLimit
             return (
-              <div key={status.id} className="kb-nav__item" style={{ cursor: 'default' }}>
+              <button
+                key={status.id}
+                type="button"
+                className="kb-nav__item"
+                // Named for what it does, because "Backlog" is both a view in
+                // the list above and a column in this one, and two controls
+                // with the same accessible name that go to different places is
+                // a maze for anyone reading the page rather than looking at it.
+                aria-label={`Go to the ${status.name} column`}
+                // Scrolls to the column rather than filtering to it. A board
+                // with a dozen columns scrolls sideways, and this list is the
+                // map of it; filtering here would compete with the sprint
+                // filter and with `status:` in the palette, which already
+                // answers that question and says so in the query.
+                onClick={() => {
+                  setView('board')
+                  requestAnimationFrame(() =>
+                    document.getElementById(`kb-column-${status.id}`)?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'nearest',
+                      inline: 'center',
+                    }),
+                  )
+                }}
+              >
                 <span
                   aria-hidden
                   style={{
@@ -154,7 +178,7 @@ export function App() {
                 >
                   {count}
                 </span>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -186,7 +210,12 @@ export function App() {
       </main>
 
       {openItem && (
-        <ItemPanel project={project} itemId={openItem} onClose={() => setOpenItem(null)} />
+        <ItemPanel
+          project={project}
+          itemId={openItem}
+          onClose={() => setOpenItem(null)}
+          onOpen={setOpenItem}
+        />
       )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       {shareOpen && <ShareDialog project={project} onClose={() => setShareOpen(false)} />}

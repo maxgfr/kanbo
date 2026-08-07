@@ -18,12 +18,15 @@ import { join } from 'node:path'
 import {
   type Operation,
   type OperationBody,
+  type Status,
+  type StatusCategory,
   byOrder,
   defaultStatuses,
   exportCsv,
   exportJson,
   importJson,
   itemsInStatus,
+  keyBetween,
   mergeLogs,
   newItem,
   operationBuilder,
@@ -74,12 +77,7 @@ switch (command) {
     if (project.statuses.length > 0) fail('A project already exists here.')
     const name = args[0] ?? 'My project'
     const key = (args[1] ?? name.slice(0, 3)).toUpperCase()
-    const statuses = defaultStatuses([
-      ports.random.id(),
-      ports.random.id(),
-      ports.random.id(),
-      ports.random.id(),
-    ])
+    const statuses = defaultStatuses(() => ports.random.id())
     await commit(
       { kind: 'project.set', patch: { name, key } },
       ...statuses.map((status) => ({ kind: 'status.upsert' as const, status })),
@@ -100,6 +98,43 @@ switch (command) {
       if (items.length === 0) console.log('  —')
     }
     console.log('')
+    break
+  }
+
+  case 'columns': {
+    if (project.statuses.length === 0) fail('No project here yet. Run `kanbo init` first.')
+    for (const status of project.statuses.toSorted(byOrder)) {
+      const limit = status.wipLimit === null ? '' : `  wip ${status.wipLimit}`
+      const count = itemsInStatus(project, status.id).length
+      console.log(`  ${status.name.padEnd(16)} ${status.category.padEnd(12)} ${count}${limit}`)
+    }
+    break
+  }
+
+  case 'column': {
+    // Columns are ordinary domain entities, so the terminal edits them with the
+    // same operation the settings panel emits. Nothing here knows it is a CLI.
+    const [action, ...rest] = args
+    if (action !== 'add') fail('Usage: kanbo column add <name> [todo|in-progress|done]')
+    if (project.statuses.length === 0) fail('No project here yet. Run `kanbo init` first.')
+
+    const tail = rest.at(-1)
+    const named = tail === 'todo' || tail === 'in-progress' || tail === 'done'
+    const category: StatusCategory = named ? tail : 'in-progress'
+    const name = (named ? rest.slice(0, -1) : rest).join(' ').trim()
+    if (name === '') fail('Usage: kanbo column add <name> [todo|in-progress|done]')
+
+    const last = project.statuses.toSorted(byOrder).at(-1)
+    const status: Status = {
+      id: ports.random.id(),
+      name,
+      category,
+      order: keyBetween(last?.order ?? null, null),
+      wipLimit: null,
+      color: null,
+    }
+    await commit({ kind: 'status.upsert', status })
+    console.log(`Added ${status.name} (${status.category})`)
     break
   }
 
@@ -176,6 +211,9 @@ switch (command) {
 
   init [name] [key]     create a project in ${ROOT}
   board                 print the board
+  columns               print the columns and their categories
+  column add <name> [category]
+                        add a column (todo, in-progress or done)
   add <title>           add an item
   move <ref> <status>   move an item
   search <query>        e.g. "is:blocked", "type:bug points:>3"

@@ -66,15 +66,21 @@ function applyMove(project: Project, operation: Operation & { kind: 'item.move' 
     let startedAt = item.startedAt
     let completedAt = item.completedAt
 
+    // Spelled out rather than closed with an `else`, so that adding a category
+    // to the union is a type error here instead of a silent decision to treat
+    // the new one as finished work.
     if (status.category === 'todo') {
       startedAt = null
       completedAt = null
     } else if (status.category === 'in-progress') {
       startedAt ??= operation.at
       completedAt = null
-    } else {
+    } else if (status.category === 'done') {
       startedAt ??= operation.at
       completedAt ??= operation.at
+    } else {
+      const unhandled: never = status.category
+      void unhandled
     }
 
     return { ...item, statusId: operation.statusId, order: operation.order, startedAt, completedAt }
@@ -131,7 +137,15 @@ function applyOne(project: Project, operation: Operation): Project {
     case 'item.delete':
       return {
         ...project,
-        items: remove(project.items, operation.itemId),
+        items: remove(project.items, operation.itemId).map((item) =>
+          // Children are released, never deleted with the parent. A parent is a
+          // grouping, and destroying real work because someone tidied away the
+          // heading above it would be the most expensive kind of surprise. The
+          // link is cut for the same reason a deleted sprint clears its own:
+          // an item pointing at something that no longer exists renders as a
+          // blank where a name should be.
+          item.parentId === operation.itemId ? { ...item, parentId: null } : item,
+        ),
         // Comments outlive nothing: an item's thread goes with it.
         comments: project.comments.filter((comment) => comment.itemId !== operation.itemId),
       }

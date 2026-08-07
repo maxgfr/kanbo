@@ -34,6 +34,24 @@ describe('folding', () => {
   it('does not duplicate an item when a create is replayed', () => {
     expect(reduceOperations([...base, create]).items).toHaveLength(1)
   })
+
+  it('releases the children of a deleted item rather than deleting them too', () => {
+    // A parent is a grouping. Destroying real work because someone tidied away
+    // the heading above it would be the most expensive kind of surprise — and
+    // leaving the child pointing at something gone renders as a blank where a
+    // reference should be, which is why the link is cut.
+    const log = [
+      ...base,
+      op('device-a', 12, {
+        kind: 'item.create',
+        item: anItem('2', { parentId: '1', statusId: 'todo' }),
+      }),
+      op('device-a', 13, { kind: 'item.delete', itemId: '1' }),
+    ]
+    const project = reduceOperations(log)
+    expect(project.items.map((item) => item.id)).toEqual(['2'])
+    expect(project.items[0]?.parentId).toBeNull()
+  })
 })
 
 describe('last write wins, per field', () => {

@@ -5,12 +5,37 @@
  * the same two-device scenario, and a divergence between their fixtures would
  * quietly weaken every convergence claim they make.
  */
-import { defaultStatuses } from '../model/project.ts'
-import type { Item, Status } from '../model/types.ts'
-import { FIRST_KEY } from '../order/fractional.ts'
+import type { Item, Status, StatusCategory } from '../model/types.ts'
+import { FIRST_KEY, keysBetween } from '../order/fractional.ts'
 import type { Operation, OperationBody } from './types.ts'
 
-export const STATUSES: readonly Status[] = defaultStatuses(['todo', 'doing', 'review', 'done'])
+/**
+ * The fixture's own four columns, spelled out here rather than borrowed from
+ * `defaultStatuses`.
+ *
+ * What a new project starts with is a product decision that will keep moving;
+ * these four ids are load-bearing for roughly forty assertions across the
+ * suites, none of which are about the default set. Sharing one array between
+ * them would mean adding a column to the product rewrites tests that have
+ * nothing to say about columns.
+ */
+const FIXTURE: readonly (readonly [string, string, StatusCategory])[] = [
+  ['todo', 'Backlog', 'todo'],
+  ['doing', 'In Progress', 'in-progress'],
+  ['review', 'In Review', 'in-progress'],
+  ['done', 'Done', 'done'],
+]
+
+const FIXTURE_ORDERS = keysBetween(null, null, FIXTURE.length)
+
+export const STATUSES: readonly Status[] = FIXTURE.map(([id, name, category], index) => ({
+  id,
+  name,
+  category,
+  order: FIXTURE_ORDERS[index] ?? FIRST_KEY,
+  wipLimit: null,
+  color: null,
+}))
 
 export function anItem(id: string, overrides: Partial<Item> = {}): Item {
   return {

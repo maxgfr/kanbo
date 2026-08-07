@@ -254,6 +254,19 @@
   min-height: 0;
 }
 
+/* The place a column would go, drawn as an outline rather than a surface: it is
+   an invitation, and a filled panel here would read as an empty column that
+   already exists. */
+.kb-column--ghost {
+  background: none;
+  border-style: dashed;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  height: fit-content;
+}
+
 .kb-column__header {
   display: flex;
   align-items: center;
@@ -326,8 +339,14 @@
     translate var(--quick);
 }
 
+/* Selection is suppressed because a card is a control here, not prose: dragging
+   one otherwise paints a selection across its title, and the browser's own
+   double-click-to-select-a-word fires on the way into the item panel.
+   Deliberately no `touch-action: none` — the touch sensor activates on a hold
+   rather than on distance, so the finger is free to scroll the column. */
 .kb-card--draggable {
   cursor: grab;
+  user-select: none;
 }
 
 /* A card lifts by one pixel rather than gaining a shadow: elevation in this
@@ -978,4 +997,78 @@
 .kb-history__entry time {
   font-size: var(--step--1);
   white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- tokens */
+
+/* A label or a person, as worn by an item. Border rather than fill, so a row
+   of six does not read as six competing states. */
+.kb-token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.0625rem var(--space-2);
+  border: 1px solid var(--rule);
+  border-radius: 99px;
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.kb-token__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  flex: 0 0 auto;
+}
+
+.kb-token__remove {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.kb-token__remove:hover {
+  color: var(--signal-cancelled);
+}
+
+/* ----------------------------------------------------------------- meter */
+
+/* One bar, used wherever "how much of this is finished" is answered — a
+   release, an epic. Two shapes for one question would be two bars that agree
+   about nothing. */
+.kb-meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.kb-meter__fill {
+  display: block;
+  height: 100%;
+  background: var(--signal-departed);
+  transition: width var(--quick);
+}
+
+.kb-meter__fill[data-late='true'] {
+  background: var(--signal-cancelled);
+}
+
+/* -------------------------------------------------------------- comments */
+
+.kb-comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.kb-comment:last-of-type {
+  border-bottom: 0;
 }

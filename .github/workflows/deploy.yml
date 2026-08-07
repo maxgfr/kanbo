@@ -16,7 +16,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The same gate CI runs, run again here rather than assumed.
+  #
+  # Deploy fires on its own triggers, and a workflow cannot read another
+  # workflow's result without either coupling their triggers or trusting that
+  # one happened to pass. Publishing an image built from code that never went
+  # through `verify` is exactly the kind of thing nobody notices until the
+  # image is what someone is running.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
   pages:
+    needs: verify
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -33,8 +55,9 @@ jobs:
       - run: pnpm build
         env:
           KANBO_BASE: /kanbo/
-      # Deploying a build whose policies drifted would be worse than not
-      # deploying at all, so the guard runs against the exact artifact.
+      # Run again despite `verify` above, because this build is a different one:
+      # it carries KANBO_BASE, and the artifact that gets deployed is the one
+      # whose policies have to be checked.
       - run: pnpm check:network
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -44,6 +67,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   container:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

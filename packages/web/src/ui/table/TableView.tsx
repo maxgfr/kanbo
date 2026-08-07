@@ -1,4 +1,4 @@
-import { type Project, byOrder, sortItems, statusById } from '@kanbo/core'
+import { type Project, byOrder, itemById, sortItems, statusById } from '@kanbo/core'
 import { useMemo, useState } from 'react'
 
 import { Icon } from '../design/Icon.tsx'
@@ -113,6 +113,17 @@ export function TableView({ project, onOpen }: TableViewProps) {
                       />
                     )}
                     {item.title}
+                    {/* Named rather than nested: the table sorts, and an indent
+                        that outlived a sort would draw a hierarchy that is not
+                        the order on screen. */}
+                    {item.parentId !== null && (
+                      <span
+                        className="kb-token"
+                        title={`Part of ${itemById(project, item.parentId)?.title ?? 'an item'}`}
+                      >
+                        {itemById(project, item.parentId)?.ref ?? '—'}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td>

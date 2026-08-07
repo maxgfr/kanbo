@@ -6,14 +6,28 @@
  * by item type because that is the distinction a reader cares about — what was
  * added, what was fixed — rather than by whatever labels a team happened to use.
  */
-import type { Item, Milestone, Project } from '../model/types.ts'
+import type { Item, ItemType, Milestone, Project } from '../model/types.ts'
 import { isoDay } from './flow.ts'
 
-const GROUPS: readonly { readonly heading: string; readonly types: readonly Item['type'][] }[] = [
+const GROUPS = [
   { heading: 'Features', types: ['epic', 'story'] },
   { heading: 'Fixes', types: ['bug'] },
   { heading: 'Other', types: ['task', 'chore', 'spike'] },
-]
+] as const satisfies readonly { readonly heading: string; readonly types: readonly ItemType[] }[]
+
+/**
+ * Every item type belongs to exactly one heading above.
+ *
+ * A type missing from the table would not fail anywhere — it would silently
+ * vanish from every release note, which is the kind of omission nobody notices
+ * until a customer asks why their fix is not listed. This turns that into a
+ * compile error: adding a member to `ItemType` breaks the build here until it
+ * has been given a heading.
+ */
+type Grouped = (typeof GROUPS)[number]['types'][number]
+type Ungrouped = Exclude<ItemType, Grouped>
+const everyTypeHasAHeading: Ungrouped extends never ? true : never = true
+void everyTypeHasAHeading
 
 export type ChangelogOptions = {
   readonly from?: number
@@ -56,7 +70,11 @@ export function changelogMarkdown(
   const lines: string[] = [`## ${title}`, '']
 
   for (const group of GROUPS) {
-    const inGroup = items.filter((item) => group.types.includes(item.type))
+    // Widened for the lookup: the literal tuple types are what make the
+    // exhaustiveness check above possible, and they also make `includes` refuse
+    // anything but the two or three types that group already lists.
+    const types: readonly ItemType[] = group.types
+    const inGroup = items.filter((item) => types.includes(item.type))
     if (inGroup.length === 0) continue
 
     lines.push(`### ${group.heading}`, '')

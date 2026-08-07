@@ -164,10 +164,17 @@ export function cumulativeFlow(
     let todo = 0
     let inProgress = 0
     let done = 0
+    // Every category named, none caught by an `else`: a diagram that quietly
+    // filed an unrecognised category under "done" would report work as finished
+    // that nobody finished.
     for (const category of state.values()) {
       if (category === 'todo') todo++
       else if (category === 'in-progress') inProgress++
-      else done++
+      else if (category === 'done') done++
+      else {
+        const unhandled: never = category
+        void unhandled
+      }
     }
     return { day, todo, inProgress, done }
   })

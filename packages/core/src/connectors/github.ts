@@ -234,10 +234,20 @@ function toPullRequest(raw: unknown): RemotePullRequest {
 /** Split `owner/repo`, or a full GitHub URL, into its parts. */
 export function parseRepository(input: string): { owner: string; repo: string } | null {
   const trimmed = input.trim().replace(/\.git$/, '')
-  const fromUrl = /github\.[^/]+\/([^/\s]+)\/([^/\s]+)/.exec(trimmed)
+
+  // `git@github.com:acme/board` is the other shape a clone URL comes in, and
+  // its colon is not a path separator. Left alone, the fallback split on `/`
+  // reads `git@github.com:acme` as the owner and the request 404s in a way that
+  // reads like a missing repository rather than a mistyped one.
+  const normalised = trimmed.replace(/^[^@\s]+@([^:\s]+):/, '$1/')
+
+  const fromUrl = /github\.[^/]+\/([^/\s]+)\/([^/\s]+)/.exec(normalised)
   if (fromUrl?.[1] && fromUrl[2]) return { owner: fromUrl[1], repo: fromUrl[2] }
 
-  const parts = trimmed.split('/').filter(Boolean)
+  // Normalised here too: a clone URL for some other host now splits into three
+  // parts and is refused, which is the right answer. Returning an owner of
+  // `git@somewhere.dev:acme` would be a guess dressed up as a reading.
+  const parts = normalised.split('/').filter(Boolean)
   if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], repo: parts[1] }
   return null
 }

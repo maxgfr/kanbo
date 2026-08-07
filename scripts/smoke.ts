@@ -161,7 +161,56 @@ async function run(browser: Browser): Promise<void> {
     `${before} -> ${after}`,
   )
 
+  // The card's own label promises "O to open", so the promise gets checked.
+  // It used to be swallowed: dnd-kit's keyboard sensor contributes an onKeyDown
+  // of its own, and a handler declared before the spread is replaced by it
+  // rather than merged.
+  await card.focus()
+  await strict.keyboard.press('o')
+  await strict.locator('#kb-title').waitFor({ timeout: 5000 })
+  check('O opens the focused card', await strict.locator('.kb-panel').isVisible())
+  await strict.getByRole('button', { name: 'Close', exact: true }).click()
+
   await shoot(strict, 'board')
+
+  // --------------------------------------------------------- custom columns
+  // The domain always allowed any number of columns; this is the check that the
+  // interface now does too, all the way to a card landing in a new one.
+  const columnsBefore = await strict.locator('section.kb-column').count()
+  await strict.getByRole('button', { name: 'Add a column' }).first().click()
+  await strict.getByLabel('Name of the new column').fill('Deployed')
+  await strict.keyboard.press('Enter')
+  await strict.locator('section.kb-column', { hasText: 'Deployed' }).waitFor({ timeout: 5000 })
+  const columnsAfter = await strict.locator('section.kb-column').count()
+  check(
+    'a column added from the board appears on it',
+    columnsAfter === columnsBefore + 1,
+    `${columnsBefore} -> ${columnsAfter}`,
+  )
+
+  // A column is not a label on a wall: deleting one has to say where its cards
+  // go, and the cards have to survive the answer.
+  await strict.getByRole('button', { name: 'Settings' }).click()
+  await strict.getByLabel('Category of Deployed').selectOption('done')
+  await strict.getByLabel('WIP limit for Deployed').fill('2')
+  await strict.getByRole('button', { name: 'Delete the Deployed column' }).click()
+  await strict.getByRole('button', { name: 'Delete column' }).click()
+
+  // The project's own name was frozen at first run, and custom fields existed
+  // for the connectors and for nobody else.
+  await strict.getByLabel('Name', { exact: true }).fill('Apollo 11')
+  await strict.getByRole('button', { name: 'Add a field' }).click()
+  await strict.getByLabel('Name of the New field field').fill('Component')
+  await strict.getByRole('button', { name: 'Close', exact: true }).click()
+  check(
+    'the project can be renamed after the first run',
+    (await strict.locator('.kb-topbar').textContent())?.includes('Apollo 11') === true,
+  )
+  check(
+    'a deleted column leaves the board, and the board keeps its cards',
+    (await strict.locator('section.kb-column', { hasText: 'Deployed' }).count()) === 0 &&
+      (await strict.locator('.kb-card').count()) >= 1,
+  )
 
   // ------------------------------------------------------------ other views
   await strict.getByRole('button', { name: 'Table' }).click()
@@ -169,7 +218,7 @@ async function run(browser: Browser): Promise<void> {
   check('the table view renders', (await strict.locator('.kb-table tbody tr').count()) >= 1)
   await shoot(strict, 'table')
 
-  await strict.getByRole('button', { name: 'Backlog' }).click()
+  await strict.getByRole('button', { name: 'Backlog', exact: true }).click()
   await strict.locator('.kb-card').first().waitFor({ timeout: 5000 })
   check('the backlog lists the item', (await strict.locator('.kb-card').count()) >= 1)
   await shoot(strict, 'backlog')
@@ -183,10 +232,31 @@ async function run(browser: Browser): Promise<void> {
     'a sprint shows a burndown and a velocity chart',
     (await strict.locator('svg[role="img"]').count()) >= 2,
   )
+
+  // The dates the burndown is drawn from have to be reachable. They used to be
+  // invented at creation and then unreachable, which made a fortnight starting
+  // today the only sprint anyone could have.
+  await strict.getByLabel('Ends').fill('2026-12-31')
+  await strict.getByLabel('Name', { exact: true }).fill('Hardening')
+  await strict.getByRole('button', { name: 'New sprint' }).click()
+  const sprintOptions = await strict.getByLabel('Sprint', { exact: true }).locator('option').count()
+  check('a sprint can be renamed and redated, and a second one added', sprintOptions === 2)
+
+  // Deleting a sprint must not delete its work.
+  const itemsBefore = await strict.locator('.kb-card').count()
+  await strict.getByRole('button', { name: /^Delete Sprint 2$/ }).click()
+  await strict.getByRole('button', { name: 'Delete sprint', exact: true }).click()
+  await strict.getByLabel('Sprint', { exact: true }).waitFor({ timeout: 5000 })
+  check(
+    'a deleted sprint releases its items rather than taking them with it',
+    (await strict.getByLabel('Sprint', { exact: true }).locator('option').count()) === 1 &&
+      (await strict.locator('.kb-card').count()) >= itemsBefore,
+  )
+
   await shoot(strict, 'sprint')
 
   // The roadmap deliberately shows nothing without dates; give the item one.
-  await strict.getByRole('button', { name: 'Backlog' }).click()
+  await strict.getByRole('button', { name: 'Backlog', exact: true }).click()
   await strict.locator('.kb-button--quiet').filter({ hasText: 'APL-' }).first().click()
   await strict.locator('#kb-due').fill('2026-09-15')
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
@@ -202,6 +272,10 @@ async function run(browser: Browser): Promise<void> {
     'releases generate a note from what actually shipped',
     (await strict.getByRole('button', { name: 'New milestone' }).count()) === 1,
   )
+  // Created here so the item panel below has a release to attach work to. A
+  // release nothing can be put into is a heading with a date on it.
+  await strict.getByRole('button', { name: 'New milestone' }).click()
+  await strict.waitForTimeout(200)
   await shoot(strict, 'releases')
 
   await strict.getByRole('button', { name: 'Metrics' }).click()
@@ -269,8 +343,11 @@ async function run(browser: Browser): Promise<void> {
   // -------------------------------------------------------------- history
   // The log was always the history; this checks it is now readable.
   await strict.locator('.kb-nav__item', { hasText: 'Board' }).first().click()
-  await strict.locator('.kb-card').first().dblclick()
+  // One click, the same gesture every other view uses. This is the regression
+  // test: the board used to be the only place that demanded a double click.
+  await strict.locator('.kb-card').first().click()
   await strict.locator('#kb-title').waitFor({ timeout: 5000 })
+  check('a single click on a card opens it', await strict.locator('.kb-panel').isVisible())
   const entries = await strict.locator('.kb-history__entry').count()
   check('an item shows the history the log already held', entries >= 2, `${entries} entries`)
   check(
@@ -278,15 +355,89 @@ async function run(browser: Browser): Promise<void> {
     /Moved (from|to)/.test((await strict.locator('.kb-history').textContent()) ?? ''),
   )
   await shoot(strict, 'history')
+
+  // ------------------------------------------------- the item panel's fields
+  // Every field below has been in the data model since the first commit and
+  // reachable from nowhere: an item could carry labels, people, a release, a
+  // thread and children, and nothing in the interface could put them there.
+  // The panel is already open on a card from the history check above.
+  await strict.getByRole('button', { name: 'New label' }).click()
+  await strict.getByLabel('New label').fill('regression')
+  await strict.keyboard.press('Enter')
+
+  await strict.getByRole('button', { name: 'New assignee' }).click()
+  await strict.getByLabel('New assignee').fill('Ada Lovelace')
+  await strict.keyboard.press('Enter')
+
+  const tokens = await strict.locator('.kb-panel .kb-token').allTextContents()
+  check(
+    'a label and a person can be invented and applied without leaving the item',
+    tokens.some((entry) => entry.includes('regression')) &&
+      tokens.some((entry) => entry.includes('Ada Lovelace')),
+    tokens.join(' | '),
+  )
+
+  await strict.getByLabel('Release').selectOption({ label: 'v1.0' })
+
+  // Sub-issues: the parent link existed on every item and nothing could set it.
+  await strict.getByRole('button', { name: 'Sub-issue' }).click()
+  await strict.getByLabel('Title of the new sub-issue').fill('Write the migration')
+  await strict.keyboard.press('Enter')
+  await strict.waitForTimeout(200)
+  const panelText = (await strict.locator('.kb-panel').textContent()) ?? ''
+  check(
+    'a sub-issue is created under its parent, and the parent counts it',
+    panelText.includes('0/1 done') && panelText.includes('Write the migration'),
+  )
+
+  await strict.getByLabel('Component').fill('billing')
+  check(
+    'a custom field defined in settings is fillable on an item',
+    (await strict.getByLabel('Component').inputValue()) === 'billing',
+  )
+
+  await strict.getByLabel('New comment').fill('Reproduced on Safari 18.')
+  await strict.keyboard.press('ControlOrMeta+Enter')
+  await strict.locator('.kb-comment').first().waitFor({ timeout: 5000 })
+  check(
+    'a comment posts, and the history reports it from the same log',
+    (await strict.locator('.kb-history').textContent())?.includes('Commented') === true,
+  )
+
+  await shoot(strict, 'item')
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // The release now has something in it, which is the only way its progress bar
+  // was ever going to say anything.
+  await strict.getByRole('button', { name: 'Releases' }).click()
+  await strict.waitForTimeout(300)
+  check(
+    'an item attached to a release shows up in that release',
+    (await strict.locator('[role="progressbar"]').first().getAttribute('aria-valuenow')) !== null &&
+      (await strict.getByText('0/1').count()) >= 1,
+  )
+
+  // `shipped` has always accepted a milestone; only the date window was
+  // reachable, so notes for a named release could not be generated at all.
+  await strict.getByLabel('What to include').selectOption({ label: 'Everything in v1.0' })
+  await strict.waitForTimeout(200)
+  check(
+    'release notes can be scoped to a release rather than to a date window',
+    (await strict.getByLabel('What to include').inputValue()).startsWith('release:'),
+  )
+
+  await strict.getByRole('button', { name: 'Board' }).click()
 
   // -------------------------------------------------------- sprints on board
   const sprintFilter = strict.getByLabel('Filter by sprint')
   await sprintFilter.waitFor({ timeout: 5000 })
   const options = await sprintFilter.locator('option').allTextContents()
   check(
+    // "Hardening" rather than "Sprint 1": the sprint was renamed earlier, and
+    // the filter reading the new name is the point — it comes from the log, not
+    // from a label captured when the sprint was made.
     'the board can be filtered to a sprint',
-    options.some((entry) => entry.includes('Sprint 1')) && options.includes('All'),
+    options.some((entry) => entry.includes('Hardening')) && options.includes('All'),
     options.join(' | '),
   )
 

@@ -34,6 +34,7 @@ function Row({ project, item, onOpen }: RowProps) {
     id: item.id,
   })
   const status = statusById(project, item.statusId)
+  const parent = item.parentId === null ? null : itemById(project, item.parentId)
 
   return (
     <div
@@ -71,6 +72,15 @@ function Row({ project, item, onOpen }: RowProps) {
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {item.title}
       </span>
+
+      {/* The parent named rather than the row indented: this list is sortable,
+          and an indent that survived a sort by priority would draw a hierarchy
+          that is not the order on screen. */}
+      {parent && (
+        <span className="kb-token" title={`Part of ${parent.ref} — ${parent.title}`}>
+          {parent.ref}
+        </span>
+      )}
 
       <span className="kb-spacer" />
 

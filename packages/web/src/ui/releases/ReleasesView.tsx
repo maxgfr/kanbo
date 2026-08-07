@@ -28,15 +28,26 @@ export function ReleasesView({
   const dispatch = useDispatch()
   const now = Date.now()
   const [windowDays, setWindowDays] = useState(14)
+  /** Empty means "by date"; a milestone id means "everything in that release". */
+  const [milestoneId, setMilestoneId] = useState('')
   const [title, setTitle] = useState(suggestedTitle(now))
   const [copied, setCopied] = useState(false)
 
-  const from = now - windowDays * DAY
-  const note = useMemo(
-    () => changelogMarkdown(project, title, { from, to: now }),
-    [project, title, from, now],
+  // A window and a release are two different questions — "what shipped this
+  // fortnight" and "what shipped in v2.0" — and `shipped` has always taken
+  // both. Only the window was reachable, so notes for a release could not be
+  // generated at all. Choosing a release drops the window: work attached to a
+  // release belongs in its notes whenever it was finished.
+  const scope = useMemo(
+    () =>
+      milestoneId === ''
+        ? { from: now - windowDays * DAY, to: now }
+        : { from: 0, to: now, milestoneId },
+    [milestoneId, windowDays, now],
   )
-  const items = shipped(project, { from, to: now })
+
+  const note = useMemo(() => changelogMarkdown(project, title, scope), [project, title, scope])
+  const items = shipped(project, scope)
 
   async function addMilestone() {
     const ports = createPorts()
@@ -129,29 +140,33 @@ export function ReleasesView({
                     >
                       {progress.done}/{progress.total}
                     </span>
+                    {/* Deleting a release returns its items to no release at
+                        all — the reducer clears the link rather than following
+                        it. Nothing shipped is un-shipped by tidying up. */}
+                    <Button
+                      variant="quiet"
+                      icon="trash"
+                      aria-label={`Delete ${milestone.name}`}
+                      onClick={() =>
+                        void dispatch({ kind: 'milestone.delete', milestoneId: milestone.id })
+                      }
+                    />
                   </div>
 
                   {/* Progress by items closed, not by points: points measure
                       effort, and a milestone is finished when the work is. */}
                   <div
-                    style={{
-                      height: 4,
-                      borderRadius: 2,
-                      background: 'var(--surface-sunken)',
-                      overflow: 'hidden',
-                    }}
+                    className="kb-meter"
                     role="progressbar"
                     aria-valuenow={percent}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label={`${milestone.name} progress`}
                   >
-                    <div
-                      style={{
-                        width: `${percent}%`,
-                        height: '100%',
-                        background: overdue ? 'var(--signal-cancelled)' : 'var(--signal-departed)',
-                      }}
+                    <span
+                      className="kb-meter__fill"
+                      data-late={overdue || undefined}
+                      style={{ width: `${percent}%` }}
                     />
                   </div>
                 </div>
@@ -174,14 +189,30 @@ export function ReleasesView({
             <select
               className="kb-select"
               style={{ width: 'auto' }}
-              value={windowDays}
-              aria-label="Period"
-              onChange={(event) => setWindowDays(Number(event.target.value))}
+              value={milestoneId === '' ? `days:${windowDays}` : `release:${milestoneId}`}
+              aria-label="What to include"
+              // Prefixed rather than sniffed: ids come from a base36 generator
+              // and are occasionally all digits, so "is it a number?" would
+              // sooner or later read a release as a number of days.
+              onChange={(event) => {
+                const [kind = '', value = ''] = event.target.value.split(':')
+                if (kind === 'days') {
+                  setMilestoneId('')
+                  setWindowDays(Number(value))
+                } else {
+                  setMilestoneId(value)
+                }
+              }}
             >
-              <option value={7}>Last 7 days</option>
-              <option value={14}>Last 14 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
+              <option value="days:7">Last 7 days</option>
+              <option value="days:14">Last 14 days</option>
+              <option value="days:30">Last 30 days</option>
+              <option value="days:90">Last 90 days</option>
+              {project.milestones.toSorted(byOrder).map((milestone) => (
+                <option key={milestone.id} value={`release:${milestone.id}`}>
+                  Everything in {milestone.name}
+                </option>
+              ))}
             </select>
             <Button
               icon={copied ? 'check' : 'link'}

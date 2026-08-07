@@ -102,6 +102,56 @@ describe('search', () => {
     expect(refs('status:doing')).toEqual(['KAN-1'])
   })
 
+  it('matches every column in a category, not only the first', () => {
+    // Two in-progress columns is the ordinary shape of a software board, and
+    // the whole reason a status carries a category at all. Answering with
+    // whichever column happened to be listed first would under-report work in
+    // progress by however many columns the team had added.
+    const board = reduceOperations([
+      ...statusOperations(),
+      op('a', 20, { kind: 'item.create', item: anItem('a', { ref: 'KAN-A', statusId: 'doing' }) }),
+      op('a', 21, { kind: 'item.create', item: anItem('b', { ref: 'KAN-B', statusId: 'review' }) }),
+      op('a', 22, { kind: 'item.create', item: anItem('c', { ref: 'KAN-C', statusId: 'todo' }) }),
+    ])
+    const on = (query: string) =>
+      search(query, { project: board, now: NOW, meId: null })
+        .map((item) => item.ref)
+        .toSorted()
+
+    expect(on('status:in-progress')).toEqual(['KAN-A', 'KAN-B'])
+    // A name still names exactly one of them.
+    expect(on('status:in-review')).toEqual(['KAN-B'])
+  })
+
+  it('finds the work under a parent, by reference', () => {
+    // `has:parent` could only ever ask the question in general. Without this,
+    // "show me everything under this epic" was not expressible at all.
+    const board = reduceOperations([
+      ...statusOperations(),
+      op('a', 20, { kind: 'item.create', item: anItem('epic', { ref: 'KAN-E' }) }),
+      op('a', 21, {
+        kind: 'item.create',
+        item: anItem('one', { ref: 'KAN-X', parentId: 'epic' }),
+      }),
+      op('a', 22, {
+        kind: 'item.create',
+        item: anItem('two', { ref: 'KAN-Y', parentId: 'epic' }),
+      }),
+      op('a', 23, { kind: 'item.create', item: anItem('free', { ref: 'KAN-Z' }) }),
+    ])
+    const on = (query: string) =>
+      search(query, { project: board, now: NOW, meId: null })
+        .map((item) => item.ref)
+        .toSorted()
+
+    expect(on('parent:KAN-E')).toEqual(['KAN-X', 'KAN-Y'])
+    expect(on('parent:kan-e')).toEqual(['KAN-X', 'KAN-Y'])
+    expect(on('parent:none')).toEqual(['KAN-E', 'KAN-Z'])
+    expect(on('-parent:none')).toEqual(['KAN-X', 'KAN-Y'])
+    // A parent nobody has heard of matches nothing rather than everything.
+    expect(on('parent:KAN-404')).toEqual([])
+  })
+
   it('resolves @me', () => {
     expect(refs('assignee:@me')).toEqual(['KAN-1'])
   })
