@@ -29,6 +29,8 @@ export type RemoteIssue = {
 export type RemotePullRequest = {
   readonly number: number
   readonly title: string
+  /** Needed to spot "closes #12" and the item reference people paste in. */
+  readonly body: string
   readonly state: 'open' | 'closed' | 'merged'
   readonly draft: boolean
   readonly url: string

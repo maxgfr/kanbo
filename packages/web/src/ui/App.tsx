@@ -2,6 +2,7 @@ import { type Project, byOrder, newItem } from '@kanbo/core'
 import { useEffect, useState } from 'react'
 
 import { readSyncSettings } from '../boot/syncSettings.ts'
+import { type DeliveryCache, deliveriesFor, refreshDelivery } from '../state/delivery.ts'
 import { createPorts, seedOperations } from '../state/store.ts'
 import { type SyncState, runSync, saveToken } from '../state/sync.ts'
 import { useDispatch, usePorts, useProject } from '../state/useStore.ts'
@@ -33,6 +34,7 @@ const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
 ]
 
 export function App() {
+  const store = usePorts()
   const project = useProject()
   const dispatch = useDispatch()
   const [view, setView] = useState<ViewKey>('board')
@@ -40,11 +42,19 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [delivery, setDelivery] = useState<DeliveryCache | null>(null)
 
   useEffect(() => {
     applyTheme()
     return watchSystemTheme()
   }, [])
+
+  // Pull requests are fetched once and cached; the board shows what it last
+  // knew rather than nothing when the forge is unreachable.
+  useEffect(() => {
+    if (readSyncSettings().mode !== 'connected') return
+    void refreshDelivery(store).then(setDelivery)
+  }, [store])
 
   // One shortcut, on the key everyone already presses for this.
   useEffect(() => {
@@ -154,7 +164,12 @@ export function App() {
         {active.length === 0 && view === 'board' ? (
           <BoardEmpty onAdd={() => void addItem()} />
         ) : view === 'board' ? (
-          <BoardView project={project} onOpen={setOpenItem} onAdd={(id) => void addItem(id)} />
+          <BoardView
+            project={project}
+            deliveries={deliveriesFor(store, delivery)}
+            onOpen={setOpenItem}
+            onAdd={(id) => void addItem(id)}
+          />
         ) : view === 'table' ? (
           <TableView project={project} onOpen={setOpenItem} />
         ) : view === 'backlog' ? (

@@ -219,12 +219,14 @@ function toPullRequest(raw: unknown): RemotePullRequest {
   return {
     number: typeof entry['number'] === 'number' ? entry['number'] : 0,
     title: asString(entry['title']),
+    body: asString(entry['body']),
     state: merged ? 'merged' : entry['state'] === 'closed' ? 'closed' : 'open',
     draft: entry['draft'] === true,
     url: asString(entry['html_url']),
     branch: asString((entry['head'] as Record<string, unknown>)?.['ref']),
-    // Check status needs a second request per pull request; left null here so
-    // a caller decides whether that cost is worth paying.
+    // GitHub does not report check status on the pull-request payload, so it
+    // is filled in by a second call only for the ones actually shown on a
+    // board — see `withChecks` below. Null means unknown, never "passing".
     checks: null,
   }
 }
@@ -238,4 +240,55 @@ export function parseRepository(input: string): { owner: string; repo: string } 
   const parts = trimmed.split('/').filter(Boolean)
   if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], repo: parts[1] }
   return null
+}
+
+/**
+ * Fill in check status for the pull requests a board actually shows.
+ *
+ * GitHub needs a request per commit for this, so it is deliberately not part
+ * of `listPullRequests`: a repository with two hundred open pull requests
+ * would spend two hundred requests answering a question about the four on
+ * screen. A failure leaves `checks` null, because "unknown" and "passing" must
+ * never look the same.
+ */
+export async function withChecks(
+  http: Http,
+  config: GitHubConfig,
+  pulls: readonly RemotePullRequest[],
+): Promise<readonly RemotePullRequest[]> {
+  const repo = `${config.apiBaseUrl.replace(/\/+$/, '')}/repos/${config.owner}/${config.repo}`
+
+  return Promise.all(
+    pulls.map(async (pull) => {
+      try {
+        const response = await http.request(`${repo}/commits/${pull.branch}/check-runs`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            Authorization: `Bearer ${config.token}`,
+          },
+        })
+        if (response.status >= 400) return pull
+
+        const runs = (JSON.parse(response.body) as { check_runs?: unknown }).check_runs
+        if (!Array.isArray(runs) || runs.length === 0) return pull
+
+        const states = runs.map((run) => {
+          const entry = run as Record<string, unknown>
+          return entry['status'] === 'completed' ? asString(entry['conclusion']) : 'pending'
+        })
+
+        const checks = states.some((state) => state === 'failure' || state === 'timed_out')
+          ? 'failing'
+          : states.some((state) => state === 'pending')
+            ? 'pending'
+            : 'passing'
+
+        return { ...pull, checks }
+      } catch {
+        return pull
+      }
+    }),
+  )
 }

@@ -8,7 +8,7 @@ There is no server, no account and no database of ours. Kanbo runs in two modes,
 
 **Local** — the default. Everything lives encrypted in your browser. The page is served with `connect-src 'none'`, so it _cannot_ make a network request: not to us, not to anyone. Nothing to trust, because nothing is possible.
 
-**Repository** — a git repo becomes the source of truth, which gives you multiple devices and multiple people without a backend. The page may then reach exactly one host: the forge you named. Nothing else.
+**Repository** — a git repo becomes the source of truth, which gives you multiple devices and multiple people without a backend. The page may then reach exactly one host: the forge you named. Nothing else. **GitHub and GitLab** are both implemented, including self-hosted instances; they sit behind one interface, so switching changes the connector and nothing else.
 
 Switching modes is a setting, and it reloads the page — because the guarantee is a property of the document, not of our code. The URL tells you which mode you are in.
 
@@ -33,7 +33,9 @@ Three things keep that honest, and CI fails if any of them slips:
 
 ## Features
 
-**Board** with real drag and drop, operable entirely from the keyboard, WIP limits, and a status chip that flips like a departure board when someone else moves a card.
+**Board** with real drag and drop, operable entirely from the keyboard, WIP limits, and a status chip that flips like a departure board when someone else moves a card. Filter it to a sprint without leaving the board, with that sprint's points done against committed in the toolbar.
+
+**History on everything.** Kanbo stores changes rather than state, so an activity feed needs no recording of its own — it is a reading of the same log the board is built from, and cannot drift from it or be quietly edited. A deleted card is gone from the board but its deletion is still in the history.
 
 **Sprints** with a goal, capacity, burndown and velocity. The burndown carries scope changes as their own series, because drawing only the remaining line makes a sprint that grew look like a team that stalled — and it stops at today rather than projecting a future nobody can know.
 
@@ -44,6 +46,8 @@ Three things keep that honest, and CI fails if any of them slips:
 **Backlog, table and releases** — ordered planning, bulk editing, and release notes generated from what actually shipped.
 
 **⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the CLI runs.
+
+**Pull requests on the ticket.** A pull request is matched to a card by the item's reference in a branch, title or description, by a closing keyword (`closes #12`), or by a bare issue mention — strongest signal wins, and a pull request that mentions nothing recognisable is left unlinked rather than guessed at. The card shows whether work is merged, open, draft, and what CI says; unknown check status is drawn as unknown, never as passing.
 
 **Encrypted sharing** — hand someone a read-only copy of the board as a link. It is encrypted in the page with AES-GCM-256 and nothing is uploaded: the key travels in the URL fragment, which browsers never send to the host, so whoever serves Kanbo cannot read what the link unlocks. Optionally protect it with a passphrase, derived with Argon2id, and send that by another route. A share cannot be revoked and does not expire — it is a copy, there is nobody to enforce an expiry, and the app says so rather than implying otherwise.
 

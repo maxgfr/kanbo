@@ -11,8 +11,11 @@ import type { SyncMode } from '@kanbo/core/policy'
  */
 const KEY = 'kanbo.sync'
 
+export type ForgeKind = 'github' | 'gitlab'
+
 export type SyncSettings = {
   readonly mode: SyncMode
+  readonly forge: ForgeKind
   /** Base URL of the forge API, e.g. `https://api.github.com`. */
   readonly remoteUrl: string | null
   /** `owner/repo`, as the forge names it. */
@@ -22,6 +25,7 @@ export type SyncSettings = {
 
 export const LOCAL_ONLY: SyncSettings = {
   mode: 'local',
+  forge: 'github',
   remoteUrl: null,
   repository: '',
   branch: 'main',

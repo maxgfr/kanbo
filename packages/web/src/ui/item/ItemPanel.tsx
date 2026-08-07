@@ -15,6 +15,7 @@ import { blockedBy } from '../board/Card.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'
+import { ItemHistory } from './History.tsx'
 import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 
 const TYPES: readonly ItemType[] = ['epic', 'story', 'task', 'bug', 'spike', 'chore']
@@ -199,6 +200,8 @@ export function ItemPanel({ project, itemId, onClose }: ItemPanelProps) {
           </div>
 
           <DependencyEditor project={project} item={item} />
+
+          <ItemHistory project={project} itemId={item.id} />
 
           <div className="kb-row" style={{ marginTop: 'auto', paddingTop: 'var(--space-4)' }}>
             <span className="kb-muted data" style={{ fontSize: 'var(--step--1)' }}>

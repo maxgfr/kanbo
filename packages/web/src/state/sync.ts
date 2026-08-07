@@ -4,6 +4,8 @@ import {
   type GitProvider,
   ProviderError,
   gitHubProvider,
+  gitLabProvider,
+  parseGitLabProject,
   parseRepository,
   synchronise,
 } from '@kanbo/core'
@@ -33,21 +35,43 @@ export async function buildProvider(
   if (settings.mode !== 'connected') return { reason: 'Repository sync is switched off.' }
   if (!settings.remoteUrl) return { reason: 'No forge API has been set.' }
 
-  const repository = parseRepository(settings.repository)
-  if (!repository) return { reason: 'The repository should look like owner/name.' }
-
   const token = await readToken(store.storage)
   if (!token) return { reason: 'No access token has been saved.' }
 
+  const http = browserHttp(settings.remoteUrl)
+  const branch = settings.branch || 'main'
+
+  if (settings.forge === 'gitlab') {
+    const project = parseGitLabProject(settings.repository)
+    if (!project) return { reason: 'The project should look like group/name.' }
+    return {
+      provider: gitLabProvider(http, {
+        apiBaseUrl: settings.remoteUrl,
+        project,
+        branch,
+        token,
+      }),
+    }
+  }
+
+  const repository = parseRepository(settings.repository)
+  if (!repository) return { reason: 'The repository should look like owner/name.' }
+
   return {
-    provider: gitHubProvider(browserHttp(settings.remoteUrl), {
+    provider: gitHubProvider(http, {
       apiBaseUrl: settings.remoteUrl,
       owner: repository.owner,
       repo: repository.repo,
-      branch: settings.branch || 'main',
+      branch,
       token,
     }),
   }
+}
+
+/** The API each forge is reached at, so nobody has to remember the path. */
+export const FORGE_DEFAULTS: Record<'github' | 'gitlab', { api: string; example: string }> = {
+  github: { api: 'https://api.github.com', example: 'owner/name' },
+  gitlab: { api: 'https://gitlab.com/api/v4', example: 'group/name' },
 }
 
 export async function saveToken(store: Store, token: string): Promise<void> {

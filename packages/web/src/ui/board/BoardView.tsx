@@ -12,10 +12,12 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import {
   type Item,
+  type ItemDelivery,
   type Project,
   type Status,
   byOrder,
   exceedsWipLimit,
+  isoDay,
   itemById,
   keyBetween,
   orderForDrop,
@@ -30,7 +32,46 @@ import { boardCollisionDetection } from './collision.ts'
 import { boardKeyboardCoordinates } from './keyboard.ts'
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return isoDay(Date.now())
+}
+
+/** Points done against points committed, for the sprint the board is showing. */
+function SprintProgress({
+  project,
+  sprintId,
+}: {
+  readonly project: Project
+  readonly sprintId: string
+}) {
+  const iteration = project.iterations.find((entry) => entry.id === sprintId)
+  if (!iteration) return null
+
+  const items = project.items.filter((item) => item.iterationId === sprintId && !item.archived)
+  const committed = items.reduce((total, item) => total + (item.estimate ?? 0), 0)
+  const done = items
+    .filter((item) => item.completedAt !== null)
+    .reduce((total, item) => total + (item.estimate ?? 0), 0)
+  const over = iteration.capacity !== null && committed > iteration.capacity
+
+  return (
+    <div className="kb-toolbar__group">
+      <span className="kb-toolbar__label">
+        {iteration.startsAt.slice(5)} → {iteration.endsAt.slice(5)}
+      </span>
+      <span
+        className="data"
+        style={{ fontSize: 'var(--step--1)', color: over ? 'var(--signal-delayed)' : undefined }}
+        title={
+          iteration.capacity === null
+            ? `${done} of ${committed} points done`
+            : `${done} of ${committed} points done, capacity ${iteration.capacity}`
+        }
+      >
+        {done}/{committed}
+        {iteration.capacity === null ? '' : ` of ${iteration.capacity}`} pts
+      </span>
+    </div>
+  )
 }
 
 type ColumnProps = {
@@ -38,11 +79,22 @@ type ColumnProps = {
   readonly status: Status
   readonly items: readonly Item[]
   readonly day: string
+  readonly deliveries: ReadonlyMap<string, ItemDelivery>
+  readonly showIteration: boolean
   readonly onOpen: (itemId: string) => void
   readonly onAdd: (statusId: string) => void
 }
 
-function Column({ project, status, items, day, onOpen, onAdd }: ColumnProps) {
+function Column({
+  project,
+  status,
+  items,
+  day,
+  deliveries,
+  showIteration,
+  onOpen,
+  onAdd,
+}: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: `column:${status.id}` })
   const over = exceedsWipLimit(project, status.id)
 
@@ -79,7 +131,15 @@ function Column({ project, status, items, day, onOpen, onAdd }: ColumnProps) {
           strategy={verticalListSortingStrategy}
         >
           {items.map((item) => (
-            <Card key={item.id} project={project} item={item} today={day} onOpen={onOpen} />
+            <Card
+              key={item.id}
+              project={project}
+              item={item}
+              today={day}
+              delivery={deliveries.get(item.id) ?? null}
+              showIteration={showIteration}
+              onOpen={onOpen}
+            />
           ))}
         </SortableContext>
 
@@ -91,14 +151,27 @@ function Column({ project, status, items, day, onOpen, onAdd }: ColumnProps) {
 
 export type BoardViewProps = {
   readonly project: Project
+  readonly deliveries: ReadonlyMap<string, ItemDelivery>
   readonly onOpen: (itemId: string) => void
   readonly onAdd: (statusId: string) => void
 }
 
-export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
+/** `null` is every sprint; `''` is the ones in no sprint at all. */
+type SprintFilter = string | null
+
+export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps) {
   const dispatch = useDispatch()
   const [dragging, setDragging] = useState<string | null>(null)
   const day = today()
+
+  const iterations = project.iterations.toSorted(byOrder)
+  const current = iterations.find((entry) => entry.startsAt <= day && entry.endsAt >= day)
+
+  // Everything, always, until someone narrows it. Opening on the current
+  // sprint reads well for a Scrum team and empties the board for a Kanban one,
+  // whose items belong to no sprint at all — and a board that hides work by
+  // default is a board that loses it. The current sprint is one click away.
+  const [sprint, setSprint] = useState<SprintFilter>(null)
 
   // The pointer sensor needs a small activation distance or a click to open a
   // card registers as a one-pixel drag. The keyboard sensor is not an
@@ -111,13 +184,19 @@ export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
 
   const columns = useMemo(() => {
     const statuses = project.statuses.toSorted(byOrder)
+    const visible = project.items.filter((item) => {
+      if (item.archived) return false
+      if (sprint === null) return true
+      return (item.iterationId ?? '') === sprint
+    })
     return statuses.map((status) => ({
       status,
-      items: project.items
-        .filter((item) => item.statusId === status.id && !item.archived)
-        .toSorted(byOrder),
+      items: visible.filter((item) => item.statusId === status.id).toSorted(byOrder),
     }))
-  }, [project])
+  }, [project, sprint])
+
+  const shown = columns.reduce((total, column) => total + column.items.length, 0)
+  const hidden = project.items.filter((item) => !item.archived).length - shown
 
   const draggedItem = dragging ? itemById(project, dragging) : null
 
@@ -185,6 +264,41 @@ export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
     )
   }
 
+  const toolbar = (
+    <div className="kb-toolbar">
+      <div className="kb-toolbar__group">
+        <span className="kb-toolbar__label">Sprint</span>
+        <select
+          className="kb-select"
+          aria-label="Filter by sprint"
+          value={sprint ?? '__all'}
+          onChange={(event) =>
+            setSprint(event.target.value === '__all' ? null : event.target.value)
+          }
+        >
+          <option value="__all">All</option>
+          {current && <option value={current.id}>Current sprint</option>}
+          {iterations.map((iteration) => (
+            <option key={iteration.id} value={iteration.id}>
+              {iteration.name}
+            </option>
+          ))}
+          <option value="">No sprint</option>
+        </select>
+      </div>
+
+      {sprint !== null && sprint !== '' && <SprintProgress project={project} sprintId={sprint} />}
+
+      <span className="kb-spacer" />
+
+      {hidden > 0 && (
+        <span className="kb-toolbar__label">
+          {hidden} item{hidden === 1 ? '' : 's'} outside this sprint
+        </span>
+      )}
+    </div>
+  )
+
   return (
     <DndContext
       sensors={sensors}
@@ -208,6 +322,8 @@ export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
         },
       }}
     >
+      {toolbar}
+
       <div className="kb-board">
         {columns.map(({ status, items }) => (
           <Column
@@ -216,6 +332,9 @@ export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
             status={status}
             items={items}
             day={day}
+            deliveries={deliveries}
+            // Redundant when the board is already filtered to one sprint.
+            showIteration={sprint === null}
             onOpen={onOpen}
             onAdd={onAdd}
           />
@@ -230,7 +349,12 @@ export function BoardView({ project, onOpen, onAdd }: BoardViewProps) {
       <DragOverlay dropAnimation={null}>
         {draggedItem && (
           <div className="kb-card kb-card__overlay">
-            <CardFace project={project} item={draggedItem} today={day} />
+            <CardFace
+              project={project}
+              item={draggedItem}
+              today={day}
+              delivery={deliveries.get(draggedItem.id) ?? null}
+            />
           </div>
         )}
       </DragOverlay>

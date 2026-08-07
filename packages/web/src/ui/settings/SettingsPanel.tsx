@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { documentMode } from '../../boot/policy.ts'
 import { syncIssues } from '../../state/issues.ts'
+import { FORGE_DEFAULTS } from '../../state/sync.ts'
 import { type SyncState, hasToken, runSync, saveToken } from '../../state/sync.ts'
 import { usePorts, useProject } from '../../state/useStore.ts'
 import { readSyncSettings, writeSyncSettings } from '../../boot/syncSettings.ts'
@@ -14,7 +15,9 @@ import { setTheme, type Theme, currentTheme } from '../theme.ts'
 
 export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const [settings, setSettings] = useState(readSyncSettings)
-  const [remoteDraft, setRemoteDraft] = useState(settings.remoteUrl ?? 'https://api.github.com')
+  const [remoteDraft, setRemoteDraft] = useState(
+    settings.remoteUrl ?? FORGE_DEFAULTS[settings.forge].api,
+  )
   const [theme, setThemeState] = useState<Theme>(currentTheme)
   const [probeResult, setProbeResult] = useState<string | null>(null)
   const [confirmingWipe, setConfirmingWipe] = useState(false)
@@ -93,7 +96,7 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
               id="kb-remote"
               className="kb-input data"
               value={remoteDraft}
-              placeholder="https://api.github.com"
+              placeholder={FORGE_DEFAULTS[settings.forge].api}
               onChange={(event) => setRemoteDraft(event.target.value)}
             />
             <p
@@ -229,14 +232,37 @@ function RepositorySection() {
     <section className="kb-field">
       <h2 className="kb-field__label">Repository</h2>
 
+      <span className="kb-field__label">Forge</span>
+      <div className="kb-row">
+        {(['github', 'gitlab'] as const).map((forge) => (
+          <Button
+            key={forge}
+            variant={settings.forge === forge ? 'primary' : 'default'}
+            icon="repo"
+            onClick={() =>
+              // Changing forge changes the API too: leaving the old one behind
+              // would fail with an error about the wrong host.
+              update({ forge, remoteUrl: FORGE_DEFAULTS[forge].api })
+            }
+          >
+            {forge === 'github' ? 'GitHub' : 'GitLab'}
+          </Button>
+        ))}
+      </div>
+      <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)', lineHeight: 1.6 }}>
+        Both speak the same interface, so switching changes the connector and nothing else — the
+        board, the merge and the history are unaffected. Self-hosted instances work: set the API
+        address above to yours.
+      </p>
+
       <label className="kb-field__label" htmlFor="kb-repo">
-        Repository
+        {settings.forge === 'gitlab' ? 'Project' : 'Repository'}
       </label>
       <input
         id="kb-repo"
         className="kb-input data"
         value={settings.repository}
-        placeholder="owner/name"
+        placeholder={FORGE_DEFAULTS[settings.forge].example}
         onChange={(event) => update({ repository: event.target.value })}
       />
 

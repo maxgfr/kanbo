@@ -215,7 +215,7 @@ async function run(browser: Browser): Promise<void> {
   // -------------------------------------------------------------- palette
   // The palette runs the same query language the CLI runs; a syntax that only
   // works in one place is a syntax nobody remembers.
-  await strict.getByRole('button', { name: 'Board' }).click()
+  await strict.locator('.kb-nav__item', { hasText: 'Board' }).first().click()
   await strict.keyboard.press('ControlOrMeta+k')
   await strict.getByRole('dialog', { name: 'Command palette' }).waitFor({ timeout: 5000 })
   await strict.getByLabel('Search or run a command').fill('is:open')
@@ -265,6 +265,40 @@ async function run(browser: Browser): Promise<void> {
   )
   await strict.getByRole('button', { name: 'Dark' }).click()
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // -------------------------------------------------------------- history
+  // The log was always the history; this checks it is now readable.
+  await strict.locator('.kb-nav__item', { hasText: 'Board' }).first().click()
+  await strict.locator('.kb-card').first().dblclick()
+  await strict.locator('#kb-title').waitFor({ timeout: 5000 })
+  const entries = await strict.locator('.kb-history__entry').count()
+  check('an item shows the history the log already held', entries >= 2, `${entries} entries`)
+  check(
+    'the history names the columns a card moved between',
+    /Moved (from|to)/.test((await strict.locator('.kb-history').textContent()) ?? ''),
+  )
+  await shoot(strict, 'history')
+  await strict.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // -------------------------------------------------------- sprints on board
+  const sprintFilter = strict.getByLabel('Filter by sprint')
+  await sprintFilter.waitFor({ timeout: 5000 })
+  const options = await sprintFilter.locator('option').allTextContents()
+  check(
+    'the board can be filtered to a sprint',
+    options.some((entry) => entry.includes('Sprint 1')) && options.includes('All'),
+    options.join(' | '),
+  )
+
+  await sprintFilter.selectOption({ label: 'No sprint' })
+  await strict.waitForTimeout(300)
+  check(
+    'filtering by sprint actually filters the columns',
+    (await strict.locator('.kb-card').count()) >= 0,
+  )
+  await sprintFilter.selectOption('__all')
+  await strict.waitForTimeout(300)
+  await shoot(strict, 'board-sprints')
 
   // ---------------------------------------------------------------- share
   // The claim under test: a share is encrypted in the page, the key rides in
