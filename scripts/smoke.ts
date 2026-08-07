@@ -225,7 +225,25 @@ async function run(browser: Browser): Promise<void> {
   await shoot(strict, 'palette')
   await strict.keyboard.press('Escape')
 
-  // ---------------------------------------------------------------- light
+  // ---------------------------------------------------------------- theme
+  // The default follows the machine. Someone who set their system to light has
+  // already answered the question, and overriding that is the app telling them
+  // they were wrong.
+  for (const scheme of ['light', 'dark'] as const) {
+    const themed = await browser.newPage({
+      viewport: { width: 900, height: 700 },
+      colorScheme: scheme,
+    })
+    await themed.goto(BASE, { waitUntil: 'networkidle' })
+    const resolved = await themed.evaluate(() => document.documentElement.dataset['theme'])
+    check(
+      `an untouched install follows a ${scheme} system`,
+      resolved === scheme,
+      resolved ?? 'unset',
+    )
+    await themed.close()
+  }
+
   await strict.getByRole('button', { name: 'Settings' }).click()
   await strict.getByRole('button', { name: 'Light' }).click()
   await strict.waitForTimeout(200)
@@ -234,6 +252,17 @@ async function run(browser: Browser): Promise<void> {
     (await strict.evaluate(() => document.documentElement.dataset['theme'])) === 'light',
   )
   await shoot(strict, 'settings-light')
+  // An explicit choice must survive the system disagreeing with it.
+  check(
+    'an explicit choice overrides the system',
+    (await strict.evaluate(() => localStorage.getItem('kanbo.theme'))) === 'light',
+  )
+  await strict.getByRole('button', { name: 'System' }).click()
+  await strict.waitForTimeout(200)
+  check(
+    'choosing System hands the decision back',
+    (await strict.evaluate(() => localStorage.getItem('kanbo.theme'))) === 'system',
+  )
   await strict.getByRole('button', { name: 'Dark' }).click()
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
 

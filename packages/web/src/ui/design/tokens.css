@@ -9,10 +9,12 @@
  * entirely for status. Nothing here is coloured to be pretty; a colour on this
  * surface always means a state.
  *
- * Dark is not a preference. The scene forces it: a developer with an editor in
- * dark mode on the next monitor, and a standup where the board is projected
- * onto a wall — a white ground floods that room. The light theme is a real
- * daylight inversion for bright meeting rooms, not an afterthought.
+ * The palette is drawn dark-first, because that is the scene it was designed
+ * for: a developer with an editor in dark mode on the next monitor, and a
+ * standup where the board is projected onto a wall a white ground would flood.
+ * That is an argument about which theme to design well, not about which one to
+ * impose — the app follows the system unless someone chooses otherwise, and the
+ * light theme below is a real daylight inversion rather than an afterthought.
  *
  * Type comes from system stacks because the strict policy forbids fetching
  * anything, web fonts included. Monospace is used only where it earns its

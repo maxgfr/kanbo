@@ -18,7 +18,7 @@ import { SettingsPanel } from './settings/SettingsPanel.tsx'
 import { ShareDialog } from './share/ShareDialog.tsx'
 import { SprintView } from './sprint/SprintView.tsx'
 import { TableView } from './table/TableView.tsx'
-import { applyTheme } from './theme.ts'
+import { applyTheme, watchSystemTheme } from './theme.ts'
 
 type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'releases' | 'metrics'
 
@@ -43,6 +43,7 @@ export function App() {
 
   useEffect(() => {
     applyTheme()
+    return watchSystemTheme()
   }, [])
 
   // One shortcut, on the key everyone already presses for this.

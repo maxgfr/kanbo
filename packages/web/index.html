@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#0b0c0e" />
+    <!-- The browser chrome follows the same scheme the app does; one fixed
+         colour would frame a light board in a dark bar. -->
+    <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14171c" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
       content="Kanbo — local-first project management. Kanban, sprints and roadmap in your browser, with a git repo as the only backend."
