@@ -68,9 +68,10 @@ function watchConsole(page: Page, label: string): void {
   page.on('console', (message: ConsoleMessage) => {
     if (message.type() !== 'error') return
     const text = message.text()
-    // A refused request is the success case for the strict document, and the
-    // browser reports it on the console either way.
-    if (/Content Security Policy|Failed to fetch|net::ERR/i.test(text)) return
+    // A refused request is the success case for the strict document, and a 404
+    // is how the Contents API says "this file does not exist yet" — which is
+    // the normal state of a first sync. The browser logs both regardless.
+    if (/Content Security Policy|Failed to fetch|net::ERR|status of 404/i.test(text)) return
     failures.push(`console error on ${label}: ${text}`)
   })
   page.on('pageerror', (error) => failures.push(`page error on ${label}: ${error.message}`))
@@ -274,6 +275,157 @@ async function run(browser: Browser): Promise<void> {
   check('a host other than the configured one is still refused', otherHostBlocked)
 
   await connected.close()
+
+  await syncScenario(browser)
+}
+
+/**
+ * Two browsers converging through one repository.
+ *
+ * The forge is simulated in memory and served by intercepting the network, but
+ * everything above it is the real thing: the real policy, the real transport,
+ * the real Contents API shapes, the real merge. Interception happens below the
+ * CSP, so a request still has to be permitted by the browser before it can be
+ * answered here — which means this exercises the narrowing rather than
+ * bypassing it.
+ */
+/** Save a token and run one sync, through the settings panel. */
+async function syncThroughSettings(page: Page) {
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.locator('#kb-token').fill('ghp_fake_token_for_the_smoke_test')
+  await page.getByRole('button', { name: 'Save token' }).click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: 'Sync now' }).click()
+  await page.waitForTimeout(900)
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+}
+
+async function syncScenario(browser: Browser): Promise<void> {
+  const files = new Map<string, { content: string; sha: string }>()
+  let revision = 0
+
+  async function forge(page: Page): Promise<void> {
+    await page.route('https://api.github.com/**', async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+      const path = decodeURIComponent(
+        url.pathname.replace(/^\/repos\/[^/]+\/[^/]+\/contents\//, ''),
+      )
+
+      if (request.method() === 'GET') {
+        const file = files.get(path)
+        if (file) {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              content: Buffer.from(file.content, 'utf8').toString('base64'),
+              sha: file.sha,
+            }),
+          })
+        }
+        // A directory listing, which is how devices are discovered.
+        const under = [...files.keys()].filter((key) => key.startsWith(`${path}/`))
+        if (under.length > 0) {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(under.map((key) => ({ path: key, type: 'file' }))),
+          })
+        }
+        return route.fulfill({ status: 404, body: '{}' })
+      }
+
+      if (request.method() === 'PUT') {
+        const body = JSON.parse(request.postData() ?? '{}') as { content: string; sha?: string }
+        const existing = files.get(path)
+        if (existing && existing.sha !== body.sha) {
+          return route.fulfill({ status: 409, body: '{}' })
+        }
+        const sha = `sha-${++revision}`
+        files.set(path, { content: Buffer.from(body.content, 'base64').toString('utf8'), sha })
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ content: { sha } }),
+        })
+      }
+
+      return route.fulfill({ status: 405, body: '{}' })
+    })
+  }
+
+  async function open(label: string) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+    watchConsole(page, label)
+    await forge(page)
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'kanbo.sync',
+        JSON.stringify({
+          mode: 'connected',
+          remoteUrl: 'https://api.github.com',
+          repository: 'maxgfr/kanbo-test',
+          branch: 'main',
+        }),
+      )
+    })
+    await page.goto(`${BASE}/connect.html`, { waitUntil: 'networkidle' })
+    return page
+  }
+
+  // Alice creates a project and pushes it.
+  const alice = await open('alice')
+  await alice.locator('#kb-project-name').fill('Shared')
+  await alice.locator('#kb-project-key').fill('SHR')
+  await alice.getByRole('button', { name: 'Create the board' }).click()
+  await alice.getByRole('button', { name: 'New item' }).click()
+  await alice.locator('#kb-title').waitFor({ timeout: 5000 })
+  await alice.locator('#kb-title').fill('Written by Alice')
+  await alice.getByRole('button', { name: 'Close', exact: true }).click()
+  await syncThroughSettings(alice)
+
+  check(
+    'a device writes only its own log file',
+    [...files.keys()].filter((p) => p.endsWith('.ndjson')).length === 1,
+    [...files.keys()].join(', '),
+  )
+
+  // Bob is a different browser profile, so a different device — and he has no
+  // board yet, which means his only route in is the join flow on first run.
+  const bob = await open('bob')
+  await bob.getByLabel('Access token').fill('ghp_fake_token_for_the_smoke_test')
+  await bob.getByRole('button', { name: 'Pull from repository' }).click()
+  await bob.getByRole('button', { name: 'New item' }).waitFor({ timeout: 10_000 })
+  check('a device with no board can join an existing repository', true)
+
+  await bob.getByRole('button', { name: 'Table' }).click()
+  await bob.locator('.kb-table').waitFor({ timeout: 5000 })
+
+  const bobSees = await bob.locator('.kb-table tbody tr').count()
+  check("a second device pulls the first device's work", bobSees === 1, `${bobSees} rows`)
+
+  // Bob adds something and pushes; Alice pulls it back.
+  await bob.getByRole('button', { name: 'New item' }).click()
+  await bob.locator('#kb-title').waitFor({ timeout: 5000 })
+  await bob.locator('#kb-title').fill('Written by Bob')
+  await bob.getByRole('button', { name: 'Close', exact: true }).click()
+  await syncThroughSettings(bob)
+
+  check(
+    'each device still owns exactly one file, so git never merges one',
+    [...files.keys()].filter((p) => p.endsWith('.ndjson')).length === 2,
+    [...files.keys()].join(', '),
+  )
+
+  await syncThroughSettings(alice)
+  await alice.getByRole('button', { name: 'Table' }).click()
+  await alice.waitForTimeout(400)
+  const aliceSees = await alice.locator('.kb-table tbody tr').count()
+  check('the two devices converge on the same board', aliceSees === 2, `${aliceSees} rows`)
+
+  await alice.close()
+  await bob.close()
 }
 
 /**

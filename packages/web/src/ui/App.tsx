@@ -1,8 +1,10 @@
 import { type Project, byOrder, newItem } from '@kanbo/core'
 import { useEffect, useState } from 'react'
 
+import { readSyncSettings } from '../boot/syncSettings'
 import { createPorts, seedOperations } from '../state/store'
-import { useDispatch, useProject } from '../state/useStore'
+import { type SyncState, runSync, saveToken } from '../state/sync'
+import { useDispatch, usePorts, useProject } from '../state/useStore'
 import { BacklogView } from './backlog/BacklogView'
 import { BoardEmpty, BoardView } from './board/BoardView'
 import { Button } from './design/Button'
@@ -63,6 +65,7 @@ export function App() {
           {project.key}
         </span>
         <span className="kb-spacer" />
+        <SyncButton />
         <Button variant="primary" icon="plus" onClick={() => void addItem()}>
           New item
         </Button>
@@ -153,8 +156,29 @@ export function App() {
  */
 function FirstRun() {
   const dispatch = useDispatch()
+  const store = usePorts()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
+  const [token, setToken] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
+
+  // A device joining a repository someone else set up has no board to open
+  // settings from, so the only route to its first pull has to be here.
+  const connected = readSyncSettings().mode === 'connected'
+
+  async function joinExisting() {
+    setJoining(true)
+    setJoinError(null)
+    // Saved first: a joining device has no token yet, and asking for it here
+    // rather than sending the user to a settings screen they cannot reach is
+    // the difference between a working flow and a dead end.
+    if (token.trim() !== '') await saveToken(store, token)
+    const state = await runSync(store)
+    setJoining(false)
+    if (state.kind === 'failed') setJoinError(state.message)
+    else if (state.kind === 'unconfigured') setJoinError(state.reason)
+  }
 
   const suggestedKey = (name.trim().split(/\s+/)[0] ?? '').slice(0, 4).toUpperCase()
   const effectiveKey = key.trim().toUpperCase() || suggestedKey || 'KAN'
@@ -207,8 +231,78 @@ function FirstRun() {
           Create the board
         </Button>
       </form>
+
+      {connected && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+            alignItems: 'center',
+            borderTop: '1px solid var(--rule)',
+            paddingTop: 'var(--space-5)',
+            width: '22rem',
+          }}
+        >
+          <p className="kb-muted" style={{ margin: 0 }}>
+            Or join a project that already exists in your repository.
+          </p>
+          <input
+            className="kb-input data"
+            type="password"
+            value={token}
+            placeholder="Access token"
+            autoComplete="off"
+            aria-label="Access token"
+            onChange={(event) => setToken(event.target.value)}
+          />
+          <Button icon="sync" disabled={joining} onClick={() => void joinExisting()}>
+            {joining ? 'Pulling…' : 'Pull from repository'}
+          </Button>
+          {joinError && (
+            <p style={{ color: 'var(--signal-cancelled)', margin: 0, fontSize: 'var(--step--1)' }}>
+              {joinError}
+            </p>
+          )}
+        </div>
+      )}
     </main>
   )
 }
 
 export type { Project }
+
+/**
+ * Sync, where someone can reach it.
+ *
+ * Only shown in repository mode: a button that cannot do anything is worse
+ * than no button, and in local mode there is nothing to sync with.
+ */
+function SyncButton() {
+  const store = usePorts()
+  const [state, setState] = useState<SyncState>({ kind: 'idle', at: null })
+  if (readSyncSettings().mode !== 'connected') return null
+
+  const failed = state.kind === 'failed' || state.kind === 'unconfigured'
+
+  return (
+    <Button
+      icon={failed ? 'warning' : 'sync'}
+      disabled={state.kind === 'syncing'}
+      title={
+        failed
+          ? state.kind === 'failed'
+            ? state.message
+            : state.reason
+          : 'Pull everyone\u2019s work, then push yours'
+      }
+      style={failed ? { color: 'var(--signal-delayed)' } : undefined}
+      onClick={() => {
+        setState({ kind: 'syncing' })
+        void runSync(store).then(setState)
+      }}
+    >
+      {state.kind === 'syncing' ? 'Syncing\u2026' : 'Sync'}
+    </Button>
+  )
+}

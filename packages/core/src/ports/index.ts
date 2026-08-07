@@ -54,6 +54,30 @@ export interface Crypto {
   decrypt(ciphertext: Ciphertext): Promise<Uint8Array>
 }
 
+export type HttpRequest = {
+  readonly method: string
+  readonly headers: Readonly<Record<string, string>>
+  readonly body?: string
+}
+
+export type HttpResponse = {
+  readonly status: number
+  readonly body: string
+}
+
+/**
+ * The narrowest possible view of the network.
+ *
+ * Deliberately not `fetch`: the domain must not be able to reach for a global,
+ * and the browser adapter behind this interface is the single audited module
+ * that enforces the configured origin. A CI guard fails the build if any other
+ * file reaches for a network API, which is what makes "the page talks to one
+ * host" checkable rather than merely intended.
+ */
+export interface Http {
+  request(url: string, init: HttpRequest): Promise<HttpResponse>
+}
+
 /** Everything the domain needs, gathered in one place. */
 export type Ports = {
   readonly clock: Clock

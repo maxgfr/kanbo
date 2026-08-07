@@ -15,9 +15,17 @@ export type SyncSettings = {
   readonly mode: SyncMode
   /** Base URL of the forge API, e.g. `https://api.github.com`. */
   readonly remoteUrl: string | null
+  /** `owner/repo`, as the forge names it. */
+  readonly repository: string
+  readonly branch: string
 }
 
-export const LOCAL_ONLY: SyncSettings = { mode: 'local', remoteUrl: null }
+export const LOCAL_ONLY: SyncSettings = {
+  mode: 'local',
+  remoteUrl: null,
+  repository: '',
+  branch: 'main',
+}
 
 function isSyncSettings(value: unknown): value is SyncSettings {
   if (typeof value !== 'object' || value === null) return false
@@ -37,7 +45,9 @@ export function readSyncSettings(): SyncSettings {
     const raw = localStorage.getItem(KEY)
     if (raw === null) return LOCAL_ONLY
     const parsed: unknown = JSON.parse(raw)
-    return isSyncSettings(parsed) ? parsed : LOCAL_ONLY
+    // Fields added after a version someone already has are filled from the
+    // safe default rather than rejecting the whole record.
+    return isSyncSettings(parsed) ? { ...LOCAL_ONLY, ...parsed } : LOCAL_ONLY
   } catch {
     return LOCAL_ONLY
   }

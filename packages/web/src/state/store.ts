@@ -30,11 +30,17 @@ export class Store {
   private ready = false
 
   private readonly ports: Ports
-  private readonly device: string
+  /** This device's identity — the name of the file it owns in a repository. */
+  readonly device: string
 
   constructor(ports: Ports, device: string) {
     this.ports = ports
     this.device = device
+  }
+
+  /** Exposed so the sync layer can hold the encrypted access token. */
+  get storage() {
+    return this.ports.storage
   }
 
   subscribe = (listener: () => void): (() => void) => {

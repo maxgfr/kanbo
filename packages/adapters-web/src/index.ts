@@ -9,3 +9,4 @@
  */
 export { browserStorage, wipeEverything } from './storage'
 export { browserClock, browserRandom, deviceId } from './clock'
+export { browserCrypto, storeToken, readToken } from './crypto'
