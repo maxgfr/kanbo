@@ -1,79 +1,198 @@
-import { useState } from 'react'
+import { type Project, byOrder, newItem } from '@kanbo/core'
+import { useEffect, useState } from 'react'
 
-import { documentMode } from '../boot/policy'
-import { readSyncSettings, writeSyncSettings } from '../boot/syncSettings'
-import { type ProbeResult, probe } from '../net/transport'
+import { createPorts, seedOperations } from '../state/store'
+import { useDispatch, useProject } from '../state/useStore'
+import { BoardEmpty, BoardView } from './board/BoardView'
+import { Button } from './design/Button'
+import { Icon, type IconName } from './design/Icon'
+import { ItemPanel } from './item/ItemPanel'
+import { SettingsPanel } from './settings/SettingsPanel'
+import { TableView } from './table/TableView'
+import { applyTheme } from './theme'
 
-/**
- * Phase 1 shell. It exists to make the network guarantee visible and testable
- * before there is any product on top of it — the board, the vault and the
- * design system land in later phases.
- */
+type ViewKey = 'board' | 'table'
+
+const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
+  { key: 'board', label: 'Board', icon: 'board' },
+  { key: 'table', label: 'Table', icon: 'table' },
+]
+
 export function App() {
-  const [settings, setSettings] = useState(readSyncSettings)
-  const [result, setResult] = useState<ProbeResult | null>(null)
-  const loaded = documentMode(window.location.pathname)
+  const project = useProject()
+  const dispatch = useDispatch()
+  const [view, setView] = useState<ViewKey>('board')
+  const [openItem, setOpenItem] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const policy =
-    document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content') ??
-    '(none)'
+  useEffect(() => {
+    applyTheme()
+  }, [])
 
-  function toggleMode() {
-    const next = settings.mode === 'local' ? 'connected' : 'local'
-    // The write is followed by a reload rather than a re-render: the policy is
-    // a property of the document, so changing mode means changing document.
-    const stored = writeSyncSettings({ ...settings, mode: next })
-    setSettings(stored)
-    window.location.reload()
+  async function addItem(statusId?: string) {
+    const ports = createPorts()
+    const first = project.statuses.toSorted(byOrder)[0]
+    const item = newItem(project, ports, {
+      title: 'Untitled',
+      ...((statusId ?? first?.id) ? { statusId: statusId ?? first!.id } : {}),
+    })
+    await dispatch({ kind: 'item.create', item })
+    setOpenItem(item.id)
   }
 
+  if (project.statuses.length === 0) {
+    return <FirstRun />
+  }
+
+  const active = project.items.filter((item) => !item.archived)
+
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 p-8">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Kanbo</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Local-first project management. Kanban, sprints and roadmap in your browser, with a git
-          repo as the only backend.
-        </p>
+    <div className="kb-shell">
+      <header className="kb-topbar">
+        <Icon name="board" size={18} />
+        <strong style={{ letterSpacing: '-0.02em' }}>{project.name || 'Kanbo'}</strong>
+        <span className="data kb-muted" style={{ fontSize: 'var(--step--1)' }}>
+          {project.key}
+        </span>
+        <span className="kb-spacer" />
+        <Button variant="primary" icon="plus" onClick={() => void addItem()}>
+          New item
+        </Button>
+        <Button
+          variant="quiet"
+          icon="settings"
+          aria-label="Settings"
+          onClick={() => setSettingsOpen(true)}
+        />
       </header>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-current/15 p-5">
-        <h2 className="text-sm font-medium">Network</h2>
-        <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="opacity-60">Stored mode</dt>
-          <dd>{settings.mode}</dd>
-          <dt className="opacity-60">Document loaded</dt>
-          <dd>{loaded}</dd>
-          <dt className="opacity-60">Effective policy</dt>
-          <dd className="font-mono text-xs break-all">{policy}</dd>
-        </dl>
-
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleMode}
-            className="rounded-md border border-current/25 px-3 py-1.5 text-sm hover:bg-current/5"
-          >
-            Switch to {settings.mode === 'local' ? 'repository' : 'local'} mode
-          </button>
-          <button
-            type="button"
-            onClick={() => void probe('https://example.com/').then(setResult)}
-            className="rounded-md border border-current/25 px-3 py-1.5 text-sm hover:bg-current/5"
-          >
-            Test an outbound request
-          </button>
+      <nav className="kb-sidebar" aria-label="Views">
+        <div>
+          <p className="kb-nav__label">Views</p>
+          {NAV.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              className="kb-nav__item"
+              aria-current={view === entry.key ? 'page' : undefined}
+              onClick={() => setView(entry.key)}
+            >
+              <Icon name={entry.icon} size={15} />
+              {entry.label}
+              {entry.key === 'board' && <span className="kb-nav__count">{active.length}</span>}
+            </button>
+          ))}
         </div>
 
-        {result && (
-          <p className="text-sm">
-            {result.reachable
-              ? '⚠ The request left the page.'
-              : '✓ Blocked by the browser, as intended.'}{' '}
-            <span className="opacity-60">{result.detail}</span>
-          </p>
+        <div>
+          <p className="kb-nav__label">Columns</p>
+          {project.statuses.toSorted(byOrder).map((status) => {
+            const count = active.filter((item) => item.statusId === status.id).length
+            const over = status.wipLimit !== null && count > status.wipLimit
+            return (
+              <div key={status.id} className="kb-nav__item" style={{ cursor: 'default' }}>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 99,
+                    background: status.color ?? 'var(--ink-faint)',
+                  }}
+                />
+                {status.name}
+                <span
+                  className="kb-nav__count"
+                  style={over ? { color: 'var(--signal-delayed)', fontWeight: 600 } : undefined}
+                >
+                  {count}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </nav>
+
+      <main className="kb-main">
+        {active.length === 0 && view === 'board' ? (
+          <BoardEmpty onAdd={() => void addItem()} />
+        ) : view === 'board' ? (
+          <BoardView project={project} onOpen={setOpenItem} onAdd={(id) => void addItem(id)} />
+        ) : (
+          <TableView project={project} onOpen={setOpenItem} />
         )}
-      </section>
+      </main>
+
+      {openItem && (
+        <ItemPanel project={project} itemId={openItem} onClose={() => setOpenItem(null)} />
+      )}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+    </div>
+  )
+}
+
+/**
+ * A first run has to land on something someone can immediately drag a card
+ * across. An empty board with no columns is a dead end, not a clean slate.
+ */
+function FirstRun() {
+  const dispatch = useDispatch()
+  const [name, setName] = useState('')
+  const [key, setKey] = useState('')
+
+  const suggestedKey = (name.trim().split(/\s+/)[0] ?? '').slice(0, 4).toUpperCase()
+  const effectiveKey = key.trim().toUpperCase() || suggestedKey || 'KAN'
+
+  return (
+    <main className="kb-empty" style={{ height: '100dvh' }}>
+      <Icon name="board" size={32} />
+      <h1 className="kb-empty__title">Kanbo</h1>
+      <p className="kb-empty__body">
+        Kanban, sprints and roadmap in your browser. Nothing leaves this machine unless you connect
+        a repository, and this page cannot reach the network until you do.
+      </p>
+
+      <form
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', width: '18rem' }}
+        onSubmit={(event) => {
+          event.preventDefault()
+          void dispatch(...seedOperations(createPorts(), name.trim() || 'My project', effectiveKey))
+        }}
+      >
+        <div className="kb-field">
+          <label className="kb-field__label" htmlFor="kb-project-name">
+            Project name
+          </label>
+          <input
+            id="kb-project-name"
+            className="kb-input"
+            value={name}
+            placeholder="Apollo"
+            onChange={(event) => setName(event.target.value)}
+          />
+        </div>
+        <div className="kb-field">
+          <label className="kb-field__label" htmlFor="kb-project-key">
+            Reference prefix
+          </label>
+          <input
+            id="kb-project-key"
+            className="kb-input data"
+            value={key}
+            placeholder={suggestedKey || 'KAN'}
+            maxLength={5}
+            onChange={(event) => setKey(event.target.value)}
+          />
+          <span className="kb-muted data" style={{ fontSize: 'var(--step--1)' }}>
+            Items will be numbered {effectiveKey}-1, {effectiveKey}-2, …
+          </span>
+        </div>
+        <Button type="submit" variant="primary">
+          Create the board
+        </Button>
+      </form>
     </main>
   )
 }
+
+export type { Project }

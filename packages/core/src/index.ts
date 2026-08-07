@@ -12,3 +12,4 @@ export * from './ops/reduce'
 export * from './ops/author'
 
 export * from './views/query'
+export * from './markdown/parse'

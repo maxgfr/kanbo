@@ -19,11 +19,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:network": "node scripts/check-network-boundary.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network"
+    "smoke": "node scripts/smoke.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm smoke"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "oxlint": "^1.77.0",
+    "playwright-core": "^1.62.1",
     "prettier": "^3.9.6",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

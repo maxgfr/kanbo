@@ -23,3 +23,6 @@ jobs:
       # typecheck, lint, format, tests, build, and the network boundary guard.
       # The guard needs the build to have run, which is why it comes last.
       - run: pnpm verify
+        env:
+          # The smoke checks drive the Chrome preinstalled on the runner.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'

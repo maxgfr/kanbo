@@ -1,0 +1,216 @@
+/*
+ * The departure board.
+ *
+ * A board answers one question — what is in flight, what is delayed, what is
+ * blocked — and that is the question a departure board has solved for a
+ * century. So Kanbo borrows its grammar rather than the category's: fixed
+ * columns under a persistent header, hairline rules instead of card shadows,
+ * every number set in tabular figures so columns align, and colour reserved
+ * entirely for status. Nothing here is coloured to be pretty; a colour on this
+ * surface always means a state.
+ *
+ * Dark is not a preference. The scene forces it: a developer with an editor in
+ * dark mode on the next monitor, and a standup where the board is projected
+ * onto a wall — a white ground floods that room. The light theme is a real
+ * daylight inversion for bright meeting rooms, not an afterthought.
+ *
+ * Type comes from system stacks because the strict policy forbids fetching
+ * anything, web fonts included. Monospace is used only where it earns its
+ * place: references, points, dates, counts, durations. Data, never decoration.
+ */
+
+:root {
+  /* ---- Ground: deep slate, never black. Black kills the hairlines. ---- */
+  --ground: #14171c;
+  --surface: #191d23;
+  --surface-raised: #1f242b;
+  --surface-sunken: #101317;
+
+  /* Hairlines carry the structure. Elevation is declared once, as a border. */
+  --rule: #2a3038;
+  --rule-strong: #3a424d;
+
+  --ink: #e8ecf1;
+  --ink-muted: #9aa5b3;
+  --ink-faint: #6b7684;
+
+  /*
+   * Status codes, straight off the board. Each one means exactly one thing
+   * everywhere it appears, which is what lets someone read the wall from three
+   * metres without a legend.
+   */
+  --signal-boarding: #4a9eff; /* in progress */
+  --signal-departed: #3fb950; /* done */
+  --signal-delayed: #d29922; /* at risk, over WIP */
+  --signal-cancelled: #f85149; /* blocked, overdue */
+  --signal-scheduled: #7d8590; /* todo */
+
+  /* Tinted from the signal hue, never grey-on-colour. */
+  --signal-boarding-dim: #16324f;
+  --signal-departed-dim: #133a1d;
+  --signal-delayed-dim: #3d2f0c;
+  --signal-cancelled-dim: #45191b;
+  --signal-scheduled-dim: #262b31;
+
+  --accent: var(--signal-boarding);
+  --focus: #58a6ff;
+
+  --font-ui:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Departure boards are monospaced because columns have to align. */
+  --font-data:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --step--1: 0.75rem;
+  --step-0: 0.8125rem;
+  --step-1: 0.9375rem;
+  --step-2: 1.125rem;
+  --step-3: 1.5rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius: 6px;
+  --radius-lg: 12px;
+
+  /* One authored motion: the split-flap. */
+  --flip: 260ms cubic-bezier(0.2, 0.9, 0.25, 1);
+  --quick: 120ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+:root[data-theme='light'] {
+  --ground: #f4f6f8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eaeef2;
+
+  --rule: #d6dce3;
+  --rule-strong: #b9c2cc;
+
+  --ink: #1b1f24;
+  --ink-muted: #57606a;
+  --ink-faint: #7b8794;
+
+  --signal-boarding: #0969da;
+  --signal-departed: #1a7f37;
+  --signal-delayed: #9a6700;
+  --signal-cancelled: #cf222e;
+  --signal-scheduled: #6e7781;
+
+  --signal-boarding-dim: #ddf4ff;
+  --signal-departed-dim: #dafbe1;
+  --signal-delayed-dim: #fff8c5;
+  --signal-cancelled-dim: #ffebe9;
+  --signal-scheduled-dim: #eaeef2;
+
+  --focus: #0969da;
+}
+
+/*
+ * Reset.
+ *
+ * Every width in this interface is a stated width — a 288px column, a card
+ * filling it — and without border-box, padding and borders are added on top of
+ * each one. A card then overflows the column it lives in, which among other
+ * things leaves a dragged card straddling two columns so that collision
+ * detection picks the wrong one.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * The parts we did not draw still belong to the design. Left at their
+ * defaults, the caret, the selection and the scrollbars announce that this
+ * page was assembled rather than built.
+ */
+::selection {
+  background: var(--signal-boarding-dim);
+  color: var(--ink);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--rule-strong);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  background-clip: content-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+html {
+  background: var(--ground);
+  color: var(--ink);
+  caret-color: var(--accent);
+  accent-color: var(--accent);
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Every figure in the interface is a measurement; none of them may wobble. */
+.data {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings:
+    'tnum' 1,
+    'zero' 1;
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+  font-weight: 600;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

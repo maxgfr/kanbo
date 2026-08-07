@@ -59,7 +59,10 @@ export type ItemPatch = Partial<
 >
 
 export type OperationBody =
-  | { readonly kind: 'project.set'; readonly patch: { name?: string; description?: string } }
+  | {
+      readonly kind: 'project.set'
+      readonly patch: { name?: string; description?: string; key?: string }
+    }
   | { readonly kind: 'item.create'; readonly item: Item }
   | { readonly kind: 'item.set'; readonly itemId: string; readonly patch: ItemPatch }
   /** Status and position move together: dropping a card is one operation. */
