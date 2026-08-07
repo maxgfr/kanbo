@@ -5,10 +5,10 @@
  * the same two-device scenario, and a divergence between their fixtures would
  * quietly weaken every convergence claim they make.
  */
-import { defaultStatuses } from '../model/project'
-import type { Item, Status } from '../model/types'
-import { FIRST_KEY } from '../order/fractional'
-import type { Operation, OperationBody } from './types'
+import { defaultStatuses } from '../model/project.ts'
+import type { Item, Status } from '../model/types.ts'
+import { FIRST_KEY } from '../order/fractional.ts'
+import type { Operation, OperationBody } from './types.ts'
 
 export const STATUSES: readonly Status[] = defaultStatuses(['todo', 'doing', 'review', 'done'])
 

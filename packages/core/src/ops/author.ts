@@ -7,12 +7,12 @@
  * builder below is the only way to make one, and it takes its id and clock from
  * the injected ports so tests stay deterministic.
  */
-import { itemById } from '../model/project'
-import type { Item, Project } from '../model/types'
-import { FIRST_KEY, byOrder, keyBetween } from '../order/fractional'
-import type { Ports } from '../ports'
-import { nextLamport } from './log'
-import type { Operation, OperationBody } from './types'
+import { itemById } from '../model/project.ts'
+import type { Item, Project } from '../model/types.ts'
+import { FIRST_KEY, byOrder, keyBetween } from '../order/fractional.ts'
+import type { Ports } from '../ports/index.ts'
+import { nextLamport } from './log.ts'
+import type { Operation, OperationBody } from './types.ts'
 
 export type Author = {
   readonly deviceId: string

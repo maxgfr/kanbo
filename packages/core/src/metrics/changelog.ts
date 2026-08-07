@@ -6,8 +6,8 @@
  * by item type because that is the distinction a reader cares about — what was
  * added, what was fixed — rather than by whatever labels a team happened to use.
  */
-import type { Item, Milestone, Project } from '../model/types'
-import { isoDay } from './flow'
+import type { Item, Milestone, Project } from '../model/types.ts'
+import { isoDay } from './flow.ts'
 
 const GROUPS: readonly { readonly heading: string; readonly types: readonly Item['type'][] }[] = [
   { heading: 'Features', types: ['epic', 'story'] },

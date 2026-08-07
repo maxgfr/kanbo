@@ -1,9 +1,9 @@
 import { type Project, byOrder, sortItems, statusById } from '@kanbo/core'
 import { useMemo, useState } from 'react'
 
-import { Icon } from '../design/Icon'
-import { StatusChip, signalForCategory } from '../design/StatusChip'
-import { blockedBy, isOverdue } from '../board/Card'
+import { Icon } from '../design/Icon.tsx'
+import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
+import { blockedBy, isOverdue } from '../board/Card.tsx'
 
 type Column = { readonly key: string; readonly label: string; readonly numeric?: boolean }
 

@@ -4,8 +4,9 @@
  *
  * Nook could assert something simpler — that no network API reaches the bundle
  * at all. Kanbo uses the network, so the assertion changes shape: network code
- * is allowed to exist, but only in one declared module, and the two documents
- * must carry exactly the policies `policy.ts` describes.
+ * is allowed to exist, but only in the declared transport module for each
+ * runtime, and the two documents must carry exactly the policies `policy.ts`
+ * describes.
  *
  * Run with `node scripts/check-network-boundary.ts` (Node strips the types).
  */
@@ -26,11 +27,15 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'packages/web/dist')
 
 /**
- * The single module permitted to touch the network. Adding an entry here is a
- * deliberate widening of the trusted surface and should be argued for in the
- * pull request that does it.
+ * The only modules permitted to touch the network: one per runtime, each
+ * enforcing the configured origin itself. Adding an entry here is a deliberate
+ * widening of the trusted surface and should be argued for in the pull request
+ * that does it — which is why the list is short enough to read.
  */
-const TRANSPORT_MODULES = ['packages/web/src/net/transport.ts']
+const TRANSPORT_MODULES = [
+  'packages/web/src/net/transport.ts',
+  'packages/adapters-node/src/http.ts',
+]
 
 const NETWORK_APIS = [
   /\bfetch\s*\(/,
@@ -88,7 +93,7 @@ async function checkSourceBoundary(): Promise<void> {
       if (pattern.test(code)) {
         fail(
           `${rel} uses a network API (${pattern.source}) outside the transport module. ` +
-            `Route it through ${TRANSPORT_MODULES[0]}, which enforces the configured origin.`,
+            `Route it through one of ${TRANSPORT_MODULES.join(' or ')}, which enforce the configured origin.`,
         )
       }
     }
@@ -222,4 +227,6 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('✓ Network boundary intact: one transport module, two documents, policies as declared.')
+console.log(
+  `✓ Network boundary intact: ${TRANSPORT_MODULES.length} transport modules, two documents, policies as declared.`,
+)

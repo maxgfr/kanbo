@@ -27,8 +27,23 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)
 
+  packages/adapters-node:
+    dependencies:
+      '@kanbo/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/adapters-web:
     dependencies:
+      '@kanbo/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/cli:
+    dependencies:
+      '@kanbo/adapters-node':
+        specifier: workspace:*
+        version: link:../adapters-node
       '@kanbo/core':
         specifier: workspace:*
         version: link:../core

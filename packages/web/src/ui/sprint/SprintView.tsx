@@ -10,11 +10,11 @@ import {
 } from '@kanbo/core'
 import { useState } from 'react'
 
-import { createPorts } from '../../state/store'
-import { useDispatch } from '../../state/useStore'
-import { BarChart, Legend, LineChart, type Series } from '../charts/Charts'
-import { Button } from '../design/Button'
-import { Icon } from '../design/Icon'
+import { createPorts } from '../../state/store.ts'
+import { useDispatch } from '../../state/useStore.ts'
+import { BarChart, Legend, LineChart, type Series } from '../charts/Charts.tsx'
+import { Button } from '../design/Button.tsx'
+import { Icon } from '../design/Icon.tsx'
 
 function nextFortnight(): { startsAt: string; endsAt: string } {
   const now = Date.now()

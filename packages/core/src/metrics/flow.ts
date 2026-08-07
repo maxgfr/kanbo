@@ -11,9 +11,9 @@
  * renames "In Progress" to "Doing", or runs four in-progress columns, keeps
  * working metrics — which is the whole reason a category exists.
  */
-import type { Item, Iteration, Project, StatusCategory } from '../model/types'
-import type { Operation } from '../ops/types'
-import { sortOperations } from '../ops/log'
+import type { Item, Iteration, Project, StatusCategory } from '../model/types.ts'
+import type { Operation } from '../ops/types.ts'
+import { sortOperations } from '../ops/log.ts'
 
 export const DAY = 86_400_000
 

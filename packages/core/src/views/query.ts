@@ -6,8 +6,8 @@
  * date. Keeping filtering and sorting in one place is what stops the board and
  * the table from disagreeing about what "my open bugs" means.
  */
-import type { Filter, Item, Project, Sort, View } from '../model/types'
-import { byOrder } from '../order/fractional'
+import type { Filter, Item, Project, Sort, View } from '../model/types.ts'
+import { byOrder } from '../order/fractional.ts'
 
 /**
  * Built-in keys usable in filters and sorts alongside custom field ids.

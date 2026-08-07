@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemById } from '../model/project'
-import { reduceOperations } from '../ops/reduce'
-import { anItem, op, statusOperations } from '../ops/testing'
+import { itemById } from '../model/project.ts'
+import { reduceOperations } from '../ops/reduce.ts'
+import { anItem, op, statusOperations } from '../ops/testing.ts'
 import {
   ISSUE_FIELD,
   type RemoteIssue,
@@ -10,7 +10,7 @@ import {
   operationsForImport,
   planIssueSync,
   typeFromLabels,
-} from './issues'
+} from './issues.ts'
 
 function anIssue(number: number, overrides: Partial<RemoteIssue> = {}): RemoteIssue {
   return {

@@ -1,0 +1,11 @@
+{
+  "name": "Kanbo",
+  "short_name": "Kanbo",
+  "description": "Local-first project management. Kanban, sprints and roadmap in your browser.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14171c",
+  "theme_color": "#14171c",
+  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

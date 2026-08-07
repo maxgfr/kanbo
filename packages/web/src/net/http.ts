@@ -1,6 +1,6 @@
 import type { Http } from '@kanbo/core'
 
-import { request } from './transport'
+import { request } from './transport.ts'
 
 /**
  * The Http port, over the one module allowed to touch the network.

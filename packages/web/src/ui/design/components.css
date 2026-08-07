@@ -692,3 +692,102 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* --------------------------------------------------------------- palette */
+
+.kb-palette {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  translate: -50% 0;
+  width: min(620px, calc(100vw - 2rem));
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+  z-index: 30;
+  overflow: hidden;
+  /* The one place a shadow is used: this panel genuinely floats above the
+     board, and a hairline alone would not read against a dense column. */
+  box-shadow: 0 24px 64px -12px rgb(0 0 0 / 0.55);
+  animation: kb-palette-in 140ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+@keyframes kb-palette-in {
+  from {
+    opacity: 0;
+    translate: -50% -6px;
+  }
+}
+
+.kb-palette__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-faint);
+}
+
+.kb-palette__input {
+  flex: 1;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step-1);
+  color: var(--ink);
+  outline: none;
+}
+
+.kb-palette__rows {
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kb-palette__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kb-palette__row[data-active] {
+  background: var(--signal-boarding-dim);
+}
+
+.kb-palette__hints {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
+}
+
+.kb-palette__hint {
+  font-family: var(--font-data);
+  font-size: var(--step--1);
+  color: var(--ink-faint);
+  background: var(--surface-sunken);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.0625rem 0.375rem;
+  cursor: pointer;
+}
+
+.kb-palette__hint:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}

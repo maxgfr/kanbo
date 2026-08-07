@@ -29,6 +29,7 @@
       "@kanbo/core": ["packages/core/src/index.ts"],
       "@kanbo/core/*": ["packages/core/src/*"],
       "@kanbo/adapters-web": ["packages/adapters-web/src/index.ts"],
+      "@kanbo/adapters-node": ["packages/adapters-node/src/index.ts"],
       "@kanbo/adapters-web/*": ["packages/adapters-web/src/*"]
     }
   },

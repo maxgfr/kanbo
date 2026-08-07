@@ -5,11 +5,11 @@ import {
   type GitProvider,
   type WriteRequest,
   opsPathFor,
-} from '../connectors/provider'
-import { itemById } from '../model/project'
-import { mergeLogs } from '../ops/log'
-import { reduceOperations } from '../ops/reduce'
-import { anItem, op, statusOperations } from '../ops/testing'
+} from '../connectors/provider.ts'
+import { itemById } from '../model/project.ts'
+import { mergeLogs } from '../ops/log.ts'
+import { reduceOperations } from '../ops/reduce.ts'
+import { anItem, op, statusOperations } from '../ops/testing.ts'
 import {
   parseLog,
   projectFrom,
@@ -18,7 +18,7 @@ import {
   serialiseLog,
   synchronise,
   writeManifest,
-} from './engine'
+} from './engine.ts'
 
 /**
  * A repository in memory.

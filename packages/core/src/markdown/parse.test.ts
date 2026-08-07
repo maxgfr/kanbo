@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { firstLine, parseInline, parseMarkdown, safeHref } from './parse'
+import { firstLine, parseInline, parseMarkdown, safeHref } from './parse.ts'
 
 describe('safeHref', () => {
   it('allows the schemes a description legitimately uses', () => {

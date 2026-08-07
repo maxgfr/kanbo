@@ -1,16 +1,16 @@
-import { originOf } from '@kanbo/core'
+import { exportCsv, exportJson, importJson, originOf } from '@kanbo/core'
 import { wipeEverything } from '@kanbo/adapters-web'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { documentMode } from '../../boot/policy'
-import { syncIssues } from '../../state/issues'
-import { type SyncState, hasToken, runSync, saveToken } from '../../state/sync'
-import { usePorts } from '../../state/useStore'
-import { readSyncSettings, writeSyncSettings } from '../../boot/syncSettings'
-import { probe } from '../../net/transport'
-import { Button } from '../design/Button'
-import { Icon } from '../design/Icon'
-import { setTheme, type Theme, currentTheme } from '../theme'
+import { documentMode } from '../../boot/policy.ts'
+import { syncIssues } from '../../state/issues.ts'
+import { type SyncState, hasToken, runSync, saveToken } from '../../state/sync.ts'
+import { usePorts, useProject } from '../../state/useStore.ts'
+import { readSyncSettings, writeSyncSettings } from '../../boot/syncSettings.ts'
+import { probe } from '../../net/transport.ts'
+import { Button } from '../design/Button.tsx'
+import { Icon } from '../design/Icon.tsx'
+import { setTheme, type Theme, currentTheme } from '../theme.ts'
 
 export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const [settings, setSettings] = useState(readSyncSettings)
@@ -147,6 +147,8 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
               )}
             </div>
           </section>
+
+          <PortabilitySection />
 
           <section className="kb-field">
             <h2 className="kb-field__label">Appearance</h2>
@@ -332,6 +334,92 @@ function RepositorySection() {
         Your device writes only to <code>.kanbo/ops/{store.device.slice(0, 8)}….ndjson</code>.
         Nobody else writes to that file, which is why two people working at once never produce a git
         conflict.
+      </p>
+    </section>
+  )
+}
+
+/** Hand a file to the browser without a round trip through any server. */
+function download(name: string, text: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Export and import.
+ *
+ * The export is the operation log, not a rendering of the board: replaying it
+ * reconstructs the project exactly, history and metrics included. A local-first
+ * tool whose data cannot leave is a trap wearing privacy's clothes.
+ */
+function PortabilitySection() {
+  const store = usePorts()
+  const project = useProject()
+  const [message, setMessage] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <section className="kb-field">
+      <h2 className="kb-field__label">Your data</h2>
+      <div className="kb-row" style={{ flexWrap: 'wrap' }}>
+        <Button
+          icon="archive"
+          onClick={() =>
+            download(
+              `kanbo-${project.key || 'project'}.json`,
+              exportJson(store.getLog(), Date.now()),
+              'application/json',
+            )
+          }
+        >
+          Export JSON
+        </Button>
+        <Button
+          icon="table"
+          onClick={() =>
+            download(`kanbo-${project.key || 'project'}.csv`, exportCsv(project), 'text/csv')
+          }
+        >
+          Export CSV
+        </Button>
+        <Button icon="plus" onClick={() => fileRef.current?.click()}>
+          Import
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          className="kb-visually-hidden"
+          aria-label="Import a Kanbo export"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            void file.text().then(async (text) => {
+              try {
+                const incoming = importJson(text)
+                const before = store.getLog().length
+                await store.absorb(incoming)
+                setMessage(`Merged ${store.getLog().length - before} new operations.`)
+              } catch (error) {
+                setMessage(error instanceof Error ? error.message : 'That file could not be read.')
+              }
+            })
+          }}
+        />
+      </div>
+      {message && (
+        <p className="kb-muted" style={{ margin: 0 }}>
+          {message}
+        </p>
+      )}
+      <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)', lineHeight: 1.6 }}>
+        The JSON export is the full history, so replaying it rebuilds the board and every metric
+        exactly. Importing merges \u2014 nothing is replaced, and importing the same file twice
+        changes nothing. The CSV is a flat view for a spreadsheet and is lossy by nature.
       </p>
     </section>
   )

@@ -9,9 +9,9 @@ import {
   typeFromLabels,
 } from '@kanbo/core'
 
-import { buildProvider } from './sync'
-import { createPorts } from './store'
-import type { Store } from './store'
+import { buildProvider } from './sync.ts'
+import { createPorts } from './store.ts'
+import type { Store } from './store.ts'
 
 export type IssueSyncReport = {
   readonly imported: number

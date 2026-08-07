@@ -12,10 +12,10 @@
  * only the keys it carries, so folding in order leaves each field holding the
  * value written by the last operation that named it.
  */
-import { EMPTY_PROJECT } from '../model/project'
-import type { Item, Project } from '../model/types'
-import { sortOperations } from './log'
-import type { Operation } from './types'
+import { EMPTY_PROJECT } from '../model/project.ts'
+import type { Item, Project } from '../model/types.ts'
+import { sortOperations } from './log.ts'
+import type { Operation } from './types.ts'
 
 /** Replace an entity in a list by id, or append it when it is new. */
 function upsert<T extends { readonly id: string }>(list: readonly T[], entity: T): readonly T[] {

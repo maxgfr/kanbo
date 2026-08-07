@@ -11,7 +11,7 @@ import {
   isAllowedRequest,
   originOf,
   policyFor,
-} from './policy'
+} from './policy.ts'
 
 describe('policyFor', () => {
   it('closes the network completely in local mode', () => {

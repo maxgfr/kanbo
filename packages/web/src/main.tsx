@@ -5,10 +5,10 @@ import './boot/policy'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { createStore } from './state/store'
-import { StoreContext } from './state/useStore'
-import { App } from './ui/App'
-import { applyTheme } from './ui/theme'
+import { createStore } from './state/store.ts'
+import { StoreContext } from './state/useStore.ts'
+import { App } from './ui/App.tsx'
+import { applyTheme } from './ui/theme.ts'
 import './styles.css'
 
 const root = document.getElementById('root')

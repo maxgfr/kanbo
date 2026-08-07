@@ -14,7 +14,7 @@
  */
 import { CONNECTED_DOCUMENT, STRICT_DOCUMENT, connectTighteningFor } from '@kanbo/core/policy'
 
-import { readSyncSettings } from './syncSettings'
+import { readSyncSettings } from './syncSettings.ts'
 
 /** Which document is actually loaded, judged from the URL alone. */
 export function documentMode(pathname: string): 'local' | 'connected' {

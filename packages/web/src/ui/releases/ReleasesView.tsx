@@ -12,11 +12,11 @@ import {
 } from '@kanbo/core'
 import { useMemo, useState } from 'react'
 
-import { createPorts } from '../../state/store'
-import { useDispatch } from '../../state/useStore'
-import { Button } from '../design/Button'
-import { Icon } from '../design/Icon'
-import { Markdown } from '../design/Markdown'
+import { createPorts } from '../../state/store.ts'
+import { useDispatch } from '../../state/useStore.ts'
+import { Button } from '../design/Button.tsx'
+import { Icon } from '../design/Icon.tsx'
+import { Markdown } from '../design/Markdown.tsx'
 
 export function ReleasesView({
   project,

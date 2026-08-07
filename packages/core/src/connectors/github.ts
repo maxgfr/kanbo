@@ -10,10 +10,10 @@
  * page's policy be narrowed to that host and keeps the privacy promise whole.
  * A CORS proxy would quietly put a third party in the middle of everything.
  */
-import type { Http } from '../ports'
-import type { IssueConnector, RemoteIssue, RemotePullRequest } from './issues'
-import { decodeBase64, encodeBase64 } from './base64'
-import { ConflictError, type GitProvider, ProviderError, type WriteRequest } from './provider'
+import type { Http } from '../ports/index.ts'
+import type { IssueConnector, RemoteIssue, RemotePullRequest } from './issues.ts'
+import { decodeBase64, encodeBase64 } from './base64.ts'
+import { ConflictError, type GitProvider, ProviderError, type WriteRequest } from './provider.ts'
 
 export type GitHubConfig = {
   /** e.g. `https://api.github.com`, or a GitHub Enterprise host. */

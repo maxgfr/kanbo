@@ -33,24 +33,53 @@ Three things keep that honest, and CI fails if any of them slips:
 
 ## Features
 
-Kanban boards with real drag and drop, WIP limits and swimlanes. Sprints with capacity, burndown and velocity. Continuous-flow metrics: cycle time, cumulative flow, throughput, aging WIP. Epics, sub-tasks and blocking dependencies with cycle detection. A roadmap with dependency arrows and milestones. Table, calendar and backlog views over typed custom fields. Markdown descriptions, so issue bodies round-trip exactly.
+**Board** with real drag and drop, operable entirely from the keyboard, WIP limits, and a status chip that flips like a departure board when someone else moves a card.
+
+**Sprints** with a goal, capacity, burndown and velocity. The burndown carries scope changes as their own series, because drawing only the remaining line makes a sprint that grew look like a team that stalled — and it stops at today rather than projecting a future nobody can know.
+
+**Flow metrics** — cycle time as percentiles rather than an average, cumulative flow, throughput, aging work in progress. Every figure is derived from the board's own history; nothing is recorded twice, so nothing can drift.
+
+**Roadmap** with dependency arrows drawn in the grammar of a technical drawing, milestones, and blocking links that refuse to form a cycle. An item with no dates gets no bar: a roadmap that invents a schedule is the most confident kind of wrong.
+
+**Backlog, table and releases** — ordered planning, bulk editing, and release notes generated from what actually shipped.
+
+**⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the CLI runs.
+
+**Markdown** descriptions, so issue bodies round-trip exactly. Rendered as elements from a tree of values — there is no `dangerouslySetInnerHTML` anywhere in Kanbo, and no sanitiser to get wrong.
+
+## From the terminal
+
+```sh
+node packages/cli/src/main.ts init "Apollo" APL
+node packages/cli/src/main.ts add "Ship the departure board"
+node packages/cli/src/main.ts search is:blocked
+node packages/cli/src/main.ts export > backup.json
+```
+
+The CLI is not a convenience wrapper — it is the evidence. It calls `@kanbo/core` directly: the same reducer the board uses, the same merge the sync engine uses, the same query language the palette uses. Nothing about a project is re-implemented for the terminal, and nothing could be, because the domain has no branch for where it is running. `pnpm check:cli` keeps that true.
 
 ## Development
 
 ```sh
 pnpm install
 pnpm dev        # http://localhost:5173 — /connect.html serves the connected document
-pnpm verify     # typecheck, lint, format, tests, build, network boundary
+pnpm verify     # everything below, in order
 ```
 
-`pnpm verify` is what CI runs. The network guard needs a build to inspect, so it comes last.
+`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, build, then three checks that need the built artifact.
+
+- **`check:network`** — no network API outside the one declared transport module, and both documents carrying exactly the policies `policy.ts` describes.
+- **`check:cli`** — the domain driven with no browser at all, including an export replayed into a different store.
+- **`smoke`** — a real browser: the strict document genuinely refusing a request, a card moved between columns with the keyboard alone, and two devices converging through a repository.
 
 ## Architecture
 
 ```
-packages/core          pure TypeScript — no browser, no Node, no I/O
-packages/adapters-web  IndexedDB, WebCrypto
-packages/web           React UI
+packages/core           pure TypeScript — no browser, no Node, no I/O
+packages/adapters-web   IndexedDB, WebCrypto
+packages/adapters-node  filesystem, node:crypto
+packages/web            React UI
+packages/cli            the `kanbo` command
 ```
 
 The domain does no I/O of its own; it receives storage, crypto and a clock as injected ports. That is what will let a CLI drive the same logic with the filesystem instead of IndexedDB, without duplicating a line of it — and it is why the domain tests need neither a browser nor a mock.

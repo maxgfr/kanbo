@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemById } from '../model/project'
-import { keyBetween } from '../order/fractional'
-import { mergeLogs } from './log'
-import { reduceOperations } from './reduce'
-import { anItem, op, statusOperations } from './testing'
+import { itemById } from '../model/project.ts'
+import { keyBetween } from '../order/fractional.ts'
+import { mergeLogs } from './log.ts'
+import { reduceOperations } from './reduce.ts'
+import { anItem, op, statusOperations } from './testing.ts'
 
 const seed = statusOperations()
 const create = op('device-a', 10, { kind: 'item.create', item: anItem('1') })

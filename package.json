@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "check:network": "node scripts/check-network-boundary.ts",
     "smoke": "node scripts/smoke.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm smoke"
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm check:cli && pnpm smoke",
+    "check:cli": "node scripts/check-cli.ts"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

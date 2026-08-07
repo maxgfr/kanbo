@@ -7,6 +7,6 @@
  * which is what lets a CLI drive the same domain logic without a browser and
  * without duplicating a line of it.
  */
-export { browserStorage, wipeEverything } from './storage'
-export { browserClock, browserRandom, deviceId } from './clock'
-export { browserCrypto, storeToken, readToken } from './crypto'
+export { browserStorage, wipeEverything } from './storage.ts'
+export { browserClock, browserRandom, deviceId } from './clock.ts'
+export { browserCrypto, storeToken, readToken } from './crypto.ts'

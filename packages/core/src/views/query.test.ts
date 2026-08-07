@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { mergeLogs } from '../ops/log'
-import { reduceOperations } from '../ops/reduce'
-import { anItem, op, statusOperations } from '../ops/testing'
-import type { Project, View } from '../model/types'
-import { keysBetween } from '../order/fractional'
-import { groupItems, matchesFilter, runView, sortItems, valueOf } from './query'
+import { mergeLogs } from '../ops/log.ts'
+import { reduceOperations } from '../ops/reduce.ts'
+import { anItem, op, statusOperations } from '../ops/testing.ts'
+import type { Project, View } from '../model/types.ts'
+import { keysBetween } from '../order/fractional.ts'
+import { groupItems, matchesFilter, runView, sortItems, valueOf } from './query.ts'
 
 const orders = keysBetween(null, null, 4)
 

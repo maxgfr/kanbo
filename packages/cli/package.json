@@ -1,0 +1,15 @@
+{
+  "name": "@kanbo/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Drive a Kanbo project from the terminal.",
+  "bin": {
+    "kanbo": "./src/main.ts"
+  },
+  "dependencies": {
+    "@kanbo/core": "workspace:*",
+    "@kanbo/adapters-node": "workspace:*"
+  }
+}

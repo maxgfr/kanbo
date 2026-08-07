@@ -8,7 +8,7 @@
  * "every device converges" means. Those three properties are asserted directly
  * in the tests, because they are the whole guarantee.
  */
-import type { Operation } from './types'
+import type { Operation } from './types.ts'
 
 /**
  * The total order every device computes identically.

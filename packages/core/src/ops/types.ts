@@ -37,7 +37,7 @@ import type {
   Milestone,
   Status,
   View,
-} from '../model/types'
+} from '../model/types.ts'
 
 /** Fields of an item a user can set directly. Derived timestamps are excluded. */
 export type ItemPatch = Partial<

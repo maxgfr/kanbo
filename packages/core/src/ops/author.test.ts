@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemsInStatus } from '../model/project'
-import type { Project } from '../model/types'
-import { byOrder, keysBetween } from '../order/fractional'
-import type { Ports } from '../ports'
-import { newItem, operationBuilder, orderForDrop, wouldCycle } from './author'
-import { mergeLogs } from './log'
-import { reduceOperations } from './reduce'
-import { anItem, op, statusOperations } from './testing'
+import { itemsInStatus } from '../model/project.ts'
+import type { Project } from '../model/types.ts'
+import { byOrder, keysBetween } from '../order/fractional.ts'
+import type { Ports } from '../ports/index.ts'
+import { newItem, operationBuilder, orderForDrop, wouldCycle } from './author.ts'
+import { mergeLogs } from './log.ts'
+import { reduceOperations } from './reduce.ts'
+import { anItem, op, statusOperations } from './testing.ts'
 
 /** Deterministic ports: ids count up, the clock ticks a second at a time. */
 function testPorts(): Ports {

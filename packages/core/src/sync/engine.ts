@@ -18,10 +18,10 @@
  * automatic on every push: rewriting the snapshot on each keystroke would make
  * the repository's history unreadable, which is half the point of using one.
  */
-import type { Project } from '../model/types'
-import { mergeLogs, operationsOf, sortOperations } from '../ops/log'
-import { reduceOperations } from '../ops/reduce'
-import type { Operation } from '../ops/types'
+import type { Project } from '../model/types.ts'
+import { mergeLogs, operationsOf, sortOperations } from '../ops/log.ts'
+import { reduceOperations } from '../ops/reduce.ts'
+import type { Operation } from '../ops/types.ts'
 import {
   ConflictError,
   type GitProvider,
@@ -29,7 +29,7 @@ import {
   OPS_DIR,
   SNAPSHOT_PATH,
   opsPathFor,
-} from '../connectors/provider'
+} from '../connectors/provider.ts'
 
 export const SYNC_FORMAT = 1
 

@@ -1,7 +1,7 @@
 import type { Operation, OperationBody, Project } from '@kanbo/core'
 import { createContext, use, useSyncExternalStore } from 'react'
 
-import type { Store } from './store'
+import type { Store } from './store.ts'
 
 export const StoreContext = createContext<Store | null>(null)
 

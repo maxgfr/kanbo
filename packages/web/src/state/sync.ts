@@ -8,9 +8,9 @@ import {
   synchronise,
 } from '@kanbo/core'
 
-import { readSyncSettings } from '../boot/syncSettings'
-import { browserHttp } from '../net/http'
-import type { Store } from './store'
+import { readSyncSettings } from '../boot/syncSettings.ts'
+import { browserHttp } from '../net/http.ts'
+import type { Store } from './store.ts'
 
 export type SyncState =
   | { readonly kind: 'off' }

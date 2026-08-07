@@ -1,22 +1,23 @@
 import { type Project, byOrder, newItem } from '@kanbo/core'
 import { useEffect, useState } from 'react'
 
-import { readSyncSettings } from '../boot/syncSettings'
-import { createPorts, seedOperations } from '../state/store'
-import { type SyncState, runSync, saveToken } from '../state/sync'
-import { useDispatch, usePorts, useProject } from '../state/useStore'
-import { BacklogView } from './backlog/BacklogView'
-import { BoardEmpty, BoardView } from './board/BoardView'
-import { Button } from './design/Button'
-import { Icon, type IconName } from './design/Icon'
-import { ItemPanel } from './item/ItemPanel'
-import { MetricsView } from './metrics/MetricsView'
-import { ReleasesView } from './releases/ReleasesView'
-import { RoadmapView } from './roadmap/RoadmapView'
-import { SettingsPanel } from './settings/SettingsPanel'
-import { SprintView } from './sprint/SprintView'
-import { TableView } from './table/TableView'
-import { applyTheme } from './theme'
+import { readSyncSettings } from '../boot/syncSettings.ts'
+import { createPorts, seedOperations } from '../state/store.ts'
+import { type SyncState, runSync, saveToken } from '../state/sync.ts'
+import { useDispatch, usePorts, useProject } from '../state/useStore.ts'
+import { BacklogView } from './backlog/BacklogView.tsx'
+import { BoardEmpty, BoardView } from './board/BoardView.tsx'
+import { Button } from './design/Button.tsx'
+import { Icon, type IconName } from './design/Icon.tsx'
+import { ItemPanel } from './item/ItemPanel.tsx'
+import { MetricsView } from './metrics/MetricsView.tsx'
+import { type Command, CommandPalette } from './palette/CommandPalette.tsx'
+import { ReleasesView } from './releases/ReleasesView.tsx'
+import { RoadmapView } from './roadmap/RoadmapView.tsx'
+import { SettingsPanel } from './settings/SettingsPanel.tsx'
+import { SprintView } from './sprint/SprintView.tsx'
+import { TableView } from './table/TableView.tsx'
+import { applyTheme } from './theme.ts'
 
 type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'releases' | 'metrics'
 
@@ -36,9 +37,22 @@ export function App() {
   const [view, setView] = useState<ViewKey>('board')
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
     applyTheme()
+  }, [])
+
+  // One shortcut, on the key everyone already presses for this.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   async function addItem(statusId?: string) {
@@ -67,6 +81,12 @@ export function App() {
           {project.key}
         </span>
         <span className="kb-spacer" />
+        <Button variant="quiet" icon="search" onClick={() => setPaletteOpen(true)}>
+          Search
+          <span className="data kb-muted" style={{ fontSize: 'var(--step--1)' }}>
+            &#8984;K
+          </span>
+        </Button>
         <SyncButton />
         <Button variant="primary" icon="plus" onClick={() => void addItem()}>
           New item
@@ -150,6 +170,30 @@ export function App() {
         <ItemPanel project={project} itemId={openItem} onClose={() => setOpenItem(null)} />
       )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {paletteOpen && (
+        <CommandPalette
+          project={project}
+          commands={
+            [
+              { id: 'new', label: 'New item', icon: 'plus', hint: 'n', run: () => void addItem() },
+              ...NAV.map((entry) => ({
+                id: `view-${entry.key}`,
+                label: `Go to ${entry.label}`,
+                icon: entry.icon,
+                run: () => setView(entry.key),
+              })),
+              {
+                id: 'settings',
+                label: 'Settings',
+                icon: 'settings',
+                run: () => setSettingsOpen(true),
+              },
+            ] satisfies Command[]
+          }
+          onOpenItem={setOpenItem}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
     </div>
   )
 }

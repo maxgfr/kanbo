@@ -18,9 +18,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { type Item, type Project, byOrder, itemById, keyBetween, statusById } from '@kanbo/core'
 import { useMemo, useState } from 'react'
 
-import { useDispatch } from '../../state/useStore'
-import { Icon } from '../design/Icon'
-import { StatusChip, signalForCategory } from '../design/StatusChip'
+import { useDispatch } from '../../state/useStore.ts'
+import { Icon } from '../design/Icon.tsx'
+import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 
 type RowProps = {
   readonly project: Project

@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 
-import { Icon, type IconName } from './Icon'
+import { Icon, type IconName } from './Icon.tsx'
 
 type Variant = 'primary' | 'default' | 'quiet' | 'danger'
 

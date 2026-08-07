@@ -7,7 +7,7 @@ import {
   compareKeys,
   keyBetween,
   keysBetween,
-} from './fractional'
+} from './fractional.ts'
 
 /**
  * A seeded generator, so a failure reported by CI reproduces exactly here.

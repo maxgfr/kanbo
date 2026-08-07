@@ -22,12 +22,12 @@ import {
 } from '@kanbo/core'
 import { useMemo, useState } from 'react'
 
-import { useDispatch } from '../../state/useStore'
-import { Button } from '../design/Button'
-import { Icon } from '../design/Icon'
-import { Card, CardFace } from './Card'
-import { boardCollisionDetection } from './collision'
-import { boardKeyboardCoordinates } from './keyboard'
+import { useDispatch } from '../../state/useStore.ts'
+import { Button } from '../design/Button.tsx'
+import { Icon } from '../design/Icon.tsx'
+import { Card, CardFace } from './Card.tsx'
+import { boardCollisionDetection } from './collision.ts'
+import { boardKeyboardCoordinates } from './keyboard.ts'
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)

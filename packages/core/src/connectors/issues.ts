@@ -12,8 +12,8 @@
  * would mean inventing labels to smuggle Kanbo's model into a system that does
  * not have it, and those labels become someone else's mess.
  */
-import type { Item, ItemType, Project } from '../model/types'
-import type { OperationBody } from '../ops/types'
+import type { Item, ItemType, Project } from '../model/types.ts'
+import type { OperationBody } from '../ops/types.ts'
 
 export type RemoteIssue = {
   readonly number: number

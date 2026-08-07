@@ -9,9 +9,9 @@ import {
 } from '@kanbo/core'
 import { useMemo } from 'react'
 
-import { useLog } from '../../state/useStore'
-import { BarChart, Legend, type Series, StackedAreaChart } from '../charts/Charts'
-import { Icon } from '../design/Icon'
+import { useLog } from '../../state/useStore.ts'
+import { BarChart, Legend, type Series, StackedAreaChart } from '../charts/Charts.tsx'
+import { Icon } from '../design/Icon.tsx'
 
 function days(count: number, now: number): { from: string; to: string } {
   return { from: isoDay(now - count * DAY), to: isoDay(now) }

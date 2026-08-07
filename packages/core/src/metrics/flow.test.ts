@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Iteration } from '../model/types'
-import { reduceOperations } from '../ops/reduce'
-import { anItem, op, statusOperations } from '../ops/testing'
+import type { Iteration } from '../model/types.ts'
+import { reduceOperations } from '../ops/reduce.ts'
+import { anItem, op, statusOperations } from '../ops/testing.ts'
 import {
   DAY,
   ageInProgress,
@@ -18,7 +18,7 @@ import {
   throughput,
   transitions,
   velocity,
-} from './flow'
+} from './flow.ts'
 
 const DAY_0 = Date.parse('2026-08-01T00:00:00Z')
 const at = (days: number, hours = 0) => DAY_0 + days * DAY + hours * 3_600_000

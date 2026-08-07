@@ -2,7 +2,7 @@ import { type Item, type Project, firstLine, itemById } from '@kanbo/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-import { Icon } from '../design/Icon'
+import { Icon } from '../design/Icon.tsx'
 
 const TYPE_ICON = {
   epic: 'epic',

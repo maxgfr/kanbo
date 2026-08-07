@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { compareOperations, devicesIn, mergeLogs, nextLamport, operationsOf } from './log'
-import { anItem, op } from './testing'
+import { compareOperations, devicesIn, mergeLogs, nextLamport, operationsOf } from './log.ts'
+import { anItem, op } from './testing.ts'
 
 const a1 = op('device-a', 1, { kind: 'item.create', item: anItem('1') })
 const a2 = op('device-a', 2, { kind: 'item.set', itemId: '1', patch: { title: 'A' } })

@@ -1,8 +1,8 @@
 import { DAY, type Item, type Project, isoDay, itemById, statusById } from '@kanbo/core'
 import { useMemo } from 'react'
 
-import { Icon } from '../design/Icon'
-import { signalForCategory } from '../design/StatusChip'
+import { Icon } from '../design/Icon.tsx'
+import { signalForCategory } from '../design/StatusChip.tsx'
 
 /**
  * The roadmap, in the grammar of a technical drawing.

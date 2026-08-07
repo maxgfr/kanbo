@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { reduceOperations } from '../ops/reduce'
-import { anItem, op, statusOperations } from '../ops/testing'
-import { DAY } from './flow'
-import { changelogMarkdown, milestoneProgress, shipped } from './changelog'
+import { reduceOperations } from '../ops/reduce.ts'
+import { anItem, op, statusOperations } from '../ops/testing.ts'
+import { DAY } from './flow.ts'
+import { changelogMarkdown, milestoneProgress, shipped } from './changelog.ts'
 
 const DAY_0 = Date.parse('2026-08-01T00:00:00Z')
 const at = (days: number) => DAY_0 + days * DAY

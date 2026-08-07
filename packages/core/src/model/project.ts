@@ -1,9 +1,9 @@
 /**
  * A project's starting shape, and the small lookups everything else needs.
  */
-import { FIRST_KEY, keysBetween } from '../order/fractional'
-import { SCHEMA_VERSION } from './types'
-import type { Item, Project, Status, StatusCategory } from './types'
+import { FIRST_KEY, keysBetween } from '../order/fractional.ts'
+import { SCHEMA_VERSION } from './types.ts'
+import type { Item, Project, Status, StatusCategory } from './types.ts'
 
 export const EMPTY_PROJECT: Project = {
   id: '',

@@ -212,6 +212,19 @@ async function run(browser: Browser): Promise<void> {
   )
   await shoot(strict, 'metrics')
 
+  // -------------------------------------------------------------- palette
+  // The palette runs the same query language the CLI runs; a syntax that only
+  // works in one place is a syntax nobody remembers.
+  await strict.getByRole('button', { name: 'Board' }).click()
+  await strict.keyboard.press('ControlOrMeta+k')
+  await strict.getByRole('dialog', { name: 'Command palette' }).waitFor({ timeout: 5000 })
+  await strict.getByLabel('Search or run a command').fill('is:open')
+  await strict.waitForTimeout(300)
+  const found = await strict.locator('.kb-palette__row').count()
+  check('the palette searches with the query language', found >= 1, `${found} rows`)
+  await shoot(strict, 'palette')
+  await strict.keyboard.press('Escape')
+
   // ---------------------------------------------------------------- light
   await strict.getByRole('button', { name: 'Settings' }).click()
   await strict.getByRole('button', { name: 'Light' }).click()

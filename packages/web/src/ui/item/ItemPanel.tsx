@@ -10,12 +10,12 @@ import {
 } from '@kanbo/core'
 import { useEffect, useRef, useState } from 'react'
 
-import { useDispatch } from '../../state/useStore'
-import { blockedBy } from '../board/Card'
-import { Button } from '../design/Button'
-import { Icon } from '../design/Icon'
-import { Markdown } from '../design/Markdown'
-import { StatusChip, signalForCategory } from '../design/StatusChip'
+import { useDispatch } from '../../state/useStore.ts'
+import { blockedBy } from '../board/Card.tsx'
+import { Button } from '../design/Button.tsx'
+import { Icon } from '../design/Icon.tsx'
+import { Markdown } from '../design/Markdown.tsx'
+import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 
 const TYPES: readonly ItemType[] = ['epic', 'story', 'task', 'bug', 'spike', 'chore']
 const PRIORITIES: readonly Priority[] = ['p0', 'p1', 'p2', 'p3', 'p4']
