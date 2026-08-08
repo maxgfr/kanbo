@@ -20,9 +20,10 @@
     "test:watch": "vitest",
     "check:network": "node scripts/check-network-boundary.ts",
     "smoke": "node scripts/smoke.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm smoke",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm smoke",
     "check:cli": "node scripts/check-cli.ts",
-    "check:parity": "node scripts/check-parity.ts"
+    "check:parity": "node scripts/check-parity.ts",
+    "check:mcp": "node scripts/check-mcp.ts"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",

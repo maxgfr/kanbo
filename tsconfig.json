@@ -35,7 +35,8 @@
       "@kanbo/adapters-node": ["packages/adapters-node/src/index.ts"],
       "@kanbo/adapters-node/*": ["packages/adapters-node/src/*"],
       "@kanbo/workspace": ["packages/workspace/src/index.ts"],
-      "@kanbo/workspace/*": ["packages/workspace/src/*"]
+      "@kanbo/workspace/*": ["packages/workspace/src/*"],
+      "@kanbo/mcp": ["packages/mcp/src/main.ts"]
     }
   },
   "include": ["packages/*/src/**/*", "packages/*/*.config.ts", "scripts/**/*", "vitest.config.ts"],

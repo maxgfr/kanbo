@@ -1,0 +1,14 @@
+{
+  "name": "@kanbo/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The Kanbo MCP server: the same project layer the CLI drives, over stdio.",
+  "dependencies": {
+    "@kanbo/core": "workspace:*",
+    "@kanbo/workspace": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  }
+}
