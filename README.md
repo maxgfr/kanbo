@@ -51,7 +51,7 @@ A person's **forge handle** is their name as the forge spells it, and it is the 
 
 **Releases** — release notes generated from what actually shipped.
 
-**⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the filter runs, and the same language the CLI runs — including `@me`, which needs a terminal to know who you are and now has `kanbo me` to tell it.
+**⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the filter runs, the same language `kanbo search` runs, and the same language the MCP server exposes — including `@me`, which needs a terminal to know who you are and has `kanbo me` to tell it.
 
 **The keyboard means it.** `/` filters, `n` opens an item, `g` then a letter goes somewhere, `?` lists all of it — and everything `?` lists is bound, which is the point of having the list.
 
@@ -64,15 +64,40 @@ A person's **forge handle** is their name as the forge spells it, and it is the 
 ## From the terminal
 
 ```sh
-node packages/cli/src/main.ts init "Apollo" APL
-node packages/cli/src/main.ts add "Ship the departure board"
-node packages/cli/src/main.ts assign APL-1 "Ada Lovelace"
-node packages/cli/src/main.ts me "Ada Lovelace"
-node packages/cli/src/main.ts search assignee:@me
-node packages/cli/src/main.ts export > backup.json
+npx kanbo init "Apollo" APL
+npx kanbo add "Ship the departure board" --type story --points 5 --assignee "Ada Lovelace"
+npx kanbo sprint new "Sprint 12" --start 2026-08-03 --end 2026-08-16 --capacity 20
+npx kanbo link APL-2 blocks APL-1
+npx kanbo search "assignee:@me is:blocked"
+npx kanbo sprint show current      # points done against committed, and the burndown
+npx kanbo metrics                  # cycle time percentiles, aging WIP, throughput, flow
 ```
 
-The CLI is not a convenience wrapper — it is the evidence. It calls `@kanbo/core` directly: the same reducer the board uses, the same merge the sync engine uses, the same query language the palette uses. Nothing about a project is re-implemented for the terminal, and nothing could be, because the domain has no branch for where it is running. `pnpm check:cli` keeps that true.
+The CLI is not a convenience wrapper — it is the evidence. It calls `@kanbo/core` through `@kanbo/workspace`: the same reducer the board uses, the same merge the sync engine uses, the same query language the palette uses. Nothing about a project is re-implemented for the terminal, and nothing could be, because the domain has no branch for where it is running.
+
+It used to be evidence of six commands. **Everything the browser can do, a terminal can now do** — sprints, releases, the roadmap, links, sub-issues, comments, labels, custom fields, deletion, workload, history, encrypted shares and repository mode — and that sentence is a checked one rather than a claim. `check:parity` maps every operation the domain defines to the action and the command that reach it, as an exhaustive record over the operation union: **adding a kind to the domain stops the build** until somebody says how a terminal reaches it. Anything that reads takes `--json`.
+
+## For an agent
+
+```sh
+npx skills add maxgfr/kanbo        # the skill: how to drive a board in conversation
+```
+
+And an MCP server over stdio, which is the same program with a different last step:
+
+```json
+{
+  "mcpServers": {
+    "kanbo": {
+      "command": "npx",
+      "args": ["-y", "kanbo-mcp@0.2"],
+      "env": { "KANBO_HOME": "/path/to/project/.kanbo" }
+    }
+  }
+}
+```
+
+Its tools return structured values rather than the aligned columns a person reads, and a refusal comes back as an error a model can act on — "no column called Shipped, here are the five that exist" — rather than as a stack trace. Writes are annotated so a client can ask first; the four tools that remove something are marked destructive, and exactly one, `kanbo_sync`, admits to touching the network. It offers no way to create a share link or set a forge token: those stay at a terminal, where a person is.
 
 ## Development
 
@@ -82,23 +107,33 @@ pnpm dev        # http://localhost:5173 — /connect.html serves the connected d
 pnpm verify     # everything below, in order
 ```
 
-`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, build, then three checks that need the built artifact.
+`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, both builds, then six checks that need a built artifact. Each of them exists because a claim in this README would otherwise be true only until the next hurried afternoon.
 
-- **`check:network`** — no network API outside the one declared transport module, and both documents carrying exactly the policies `policy.ts` describes.
-- **`check:cli`** — the domain driven with no browser at all, including an export replayed into a different store.
+- **`check:network`** — no network API outside the one declared transport module per runtime; both documents carrying exactly the policies `policy.ts` describes; and, in each published command, exactly one `fetch` call site with the origin refusal still in it.
+- **`check:cli`** — the domain driven with no browser at all, including an export replayed into a different store. Its assertions are written once and run three times: against the source, against the bundle, and against the bin installed from a packed tarball.
+- **`check:parity`** — every operation the domain defines is reachable from a terminal, every reading the browser offers can be printed, and the help does not mention a command that is not routed.
+- **`check:mcp`** — a real stdio session: a card written through a tool is read by the command on the same store, and nothing but JSON-RPC ever reaches stdout.
+- **`check:skill`** — the skill does not name a command that does not exist, and its list of query qualifiers is the one the query language accepts.
+- **`check:dist`** — the tarball packed, installed with npm outside the workspace, and driven through every CLI assertion with no pnpm and no TypeScript present.
 - **`smoke`** — a real browser: the strict document genuinely refusing a request, a card moved between columns with the keyboard alone, and two devices converging through a repository.
 
 ## Architecture
 
 ```
 packages/core           pure TypeScript — no browser, no Node, no I/O
+packages/crypto         AES-GCM and Argon2id, over standards both runtimes have
 packages/adapters-web   IndexedDB, WebCrypto
 packages/adapters-node  filesystem, node:crypto
+packages/workspace      one project on a disk: open it, read it, change it
 packages/web            React UI
 packages/cli            the `kanbo` command
+packages/mcp            the `kanbo-mcp` server
+packages/npm            what is published, and nothing else
 ```
 
-The domain does no I/O of its own; it receives storage, crypto and a clock as injected ports. That is what will let a CLI drive the same logic with the filesystem instead of IndexedDB, without duplicating a line of it — and it is why the domain tests need neither a browser nor a mock.
+The domain does no I/O of its own; it receives storage, crypto and a clock as injected ports. That is what lets a CLI drive the same logic with the filesystem instead of IndexedDB, without duplicating a line of it — and it is why the domain tests need neither a browser nor a mock.
+
+`packages/workspace` is the layer above that: where the store is, what `APL-12` refers to, and which operations "close this sprint" implies. It renders nothing. The CLI turns its values into text and the MCP server turns them into JSON, and neither decides anything about a project — which is what keeps the claim above true now that the terminal is not the only thing outside the browser.
 
 `packages/core/src/policy.ts` is the single source of truth for the CSP directives. The Vite plugin composes the documents from it, the boot module tightens from it, and the CI guard checks against it. A directive living in only one of those three places is a directive that will drift.
 

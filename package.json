@@ -22,10 +22,11 @@
     "smoke": "node scripts/smoke.ts",
     "build:dist": "node scripts/build-dist.ts",
     "check:dist": "node scripts/check-dist.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:dist && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm check:dist && pnpm smoke",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:dist && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm check:skill && pnpm check:dist && pnpm smoke",
     "check:cli": "node scripts/check-cli.ts",
     "check:parity": "node scripts/check-parity.ts",
-    "check:mcp": "node scripts/check-mcp.ts"
+    "check:mcp": "node scripts/check-mcp.ts",
+    "check:skill": "node scripts/check-skill.ts"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
