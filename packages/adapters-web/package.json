@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "@kanbo/core": "workspace:*",
-    "hash-wasm": "^4.12.0"
+    "@kanbo/crypto": "workspace:*"
   }
 }

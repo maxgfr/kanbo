@@ -1,4 +1,5 @@
 import type { Ciphertext, Crypto as CryptoPort, Storage } from '@kanbo/core'
+import { readToken as unframeToken, storeToken as frameToken } from '@kanbo/crypto'
 
 /**
  * Encryption at rest, with a key JavaScript cannot read.
@@ -103,37 +104,16 @@ export function browserCrypto(storage: Storage): CryptoPort {
   }
 }
 
-const TOKEN_KEY = 'forge.token'
-
-/** Store the access token encrypted, keyed by the non-extractable key above. */
-export async function storeToken(storage: Storage, token: string): Promise<void> {
-  if (token === '') {
-    await storage.delete(TOKEN_KEY)
-    return
-  }
-  const { encrypt } = browserCrypto(storage)
-  const { iv, data } = await encrypt(new TextEncoder().encode(token))
-
-  const envelope = new Uint8Array(1 + iv.length + data.length)
-  envelope[0] = iv.length
-  envelope.set(iv, 1)
-  envelope.set(data, 1 + iv.length)
-  await storage.set(TOKEN_KEY, envelope)
+/**
+ * The token, framed by `@kanbo/crypto` and sealed by the key above.
+ *
+ * The framing is shared with the Node adapter; only the key differs. These two
+ * wrappers exist so callers in the browser never have to name a key at all.
+ */
+export function storeToken(storage: Storage, token: string): Promise<void> {
+  return frameToken(storage, browserCrypto(storage), token)
 }
 
-export async function readToken(storage: Storage): Promise<string | null> {
-  const envelope = await storage.get(TOKEN_KEY)
-  if (!envelope || envelope.length < 2) return null
-
-  try {
-    const ivLength = envelope[0]!
-    const iv = envelope.slice(1, 1 + ivLength)
-    const data = envelope.slice(1 + ivLength)
-    const { decrypt } = browserCrypto(storage)
-    return new TextDecoder().decode(await decrypt({ iv, data }))
-  } catch {
-    // A token we cannot decrypt is a token we do not have. Reporting null
-    // sends the user to re-enter it rather than failing every sync opaquely.
-    return null
-  }
+export function readToken(storage: Storage): Promise<string | null> {
+  return unframeToken(storage, browserCrypto(storage))
 }

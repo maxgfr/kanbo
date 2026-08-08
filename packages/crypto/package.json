@@ -1,15 +1,15 @@
 {
-  "name": "@kanbo/adapters-node",
+  "name": "@kanbo/crypto",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Node implementations of the @kanbo/core ports: filesystem, node:crypto.",
+  "description": "AES-GCM and Argon2id over the standard APIs both runtimes already have.",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
     "@kanbo/core": "workspace:*",
-    "@kanbo/crypto": "workspace:*"
+    "hash-wasm": "^4.12.0"
   }
 }

@@ -11,7 +11,14 @@ import {
 import { argon2id } from 'hash-wasm'
 
 /**
- * Encrypting a share, in the browser, with nothing leaving it.
+ * Encrypting a share, with nothing leaving the machine that does it.
+ *
+ * This file reaches for five things — `crypto.subtle`, `CompressionStream`,
+ * `DecompressionStream`, `Blob`, `Response` — and every one of them is a web
+ * standard that Node has too. It lived in the browser adapter until a terminal
+ * needed it, which was a statement about where it had been written rather than
+ * about what it could run on. Nothing here was changed to make it portable; it
+ * already was.
  *
  * AES-GCM-256 throughout. Two ways to get the key:
  *
@@ -25,7 +32,8 @@ import { argon2id } from 'hash-wasm'
  * is the right trade for something typed once. hash-wasm inlines its module as
  * base64 rather than fetching a `.wasm`, so this works under
  * `connect-src 'none'` — a fetched module would be blocked by our own policy,
- * and the smoke check would catch it.
+ * and the smoke check would catch it. The same property is why it survives
+ * being bundled into a single file for npm.
  *
  * Compression comes before encryption, because ciphertext is incompressible by
  * design and a board is mostly repeated field names. It routinely takes a

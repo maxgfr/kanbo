@@ -7,3 +7,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# tsc --build writes this on every run; it is a cache, not a source.
+tsconfig.tsbuildinfo

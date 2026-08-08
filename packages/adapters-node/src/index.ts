@@ -83,3 +83,5 @@ export async function nodeDeviceId(storage: Storage): Promise<string> {
 }
 
 export { nodeHttp } from './http.ts'
+export { nodeCrypto, storeToken, readToken } from './crypto.ts'
+export { encryptShare, decryptShare, measureArgonCost, type ShareResult } from '@kanbo/crypto'

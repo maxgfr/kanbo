@@ -7,6 +7,7 @@ export default defineConfig({
     alias: {
       '@kanbo/core/policy': resolve(import.meta.dirname, 'packages/core/src/policy.ts'),
       '@kanbo/core': resolve(import.meta.dirname, 'packages/core/src/index.ts'),
+      '@kanbo/crypto': resolve(import.meta.dirname, 'packages/crypto/src/index.ts'),
     },
   },
   test: {
