@@ -7,6 +7,7 @@ import {
   ISSUE_FIELD,
   type RemoteIssue,
   issueNumberOf,
+  membersForHandles,
   operationsForImport,
   planIssueSync,
   typeFromLabels,
@@ -132,5 +133,50 @@ describe('operationsForImport', () => {
     expect(project.items).toHaveLength(1)
     expect(issueNumberOf(project.items[0]!)).toBe(7)
     expect(itemById(project, 'generated-1')?.title).toBe('Issue 7')
+  })
+})
+
+/**
+ * What the forge handle is for — and it was for nothing until now. Both
+ * connectors have always read `assignees` off an issue and nothing looked at
+ * them, which made the handle a field you could fill in and never spend.
+ */
+describe('membersForHandles', () => {
+  const team = projectWith(
+    { kind: 'member.upsert', member: { id: 'ada', name: 'Ada Lovelace', handle: 'ada' } },
+    { kind: 'member.upsert', member: { id: 'alan', name: 'Alan Turing', handle: '@alan' } },
+    { kind: 'member.upsert', member: { id: 'grace', name: 'Grace Hopper', handle: null } },
+  )
+
+  it('maps a login to the person who claims it', () => {
+    expect(membersForHandles(team, ['ada'])).toEqual(['ada'])
+  })
+
+  it('ignores the @ on either side, since forges and people disagree about it', () => {
+    expect(membersForHandles(team, ['@ada'])).toEqual(['ada'])
+    expect(membersForHandles(team, ['alan'])).toEqual(['alan'])
+  })
+
+  it('matches regardless of case', () => {
+    expect(membersForHandles(team, ['ADA'])).toEqual(['ada'])
+  })
+
+  it('drops a login nobody claims rather than inventing a member', () => {
+    // Importing a repository would otherwise fill the team with every drive-by
+    // contributor it ever had, and a person on this board is one somebody
+    // agreed to.
+    expect(membersForHandles(team, ['stranger'])).toEqual([])
+  })
+
+  it('ignores people who never gave a handle', () => {
+    expect(membersForHandles(team, ['grace', 'Grace Hopper'])).toEqual([])
+  })
+
+  it('returns each person once, however many logins point at them', () => {
+    expect(membersForHandles(team, ['ada', '@ada', 'ADA'])).toEqual(['ada'])
+  })
+
+  it('answers nothing for a project with no team', () => {
+    expect(membersForHandles(projectWith(), ['ada'])).toEqual([])
   })
 })

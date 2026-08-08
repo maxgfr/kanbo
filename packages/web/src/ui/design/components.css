@@ -1231,3 +1231,18 @@
   background: var(--ground);
   color: var(--ink);
 }
+
+.kb-list__sorts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.kb-palette__hint[data-active] {
+  color: var(--ink);
+  background: var(--signal-boarding-dim);
+  border-color: color-mix(in oklab, var(--signal-boarding) 30%, transparent);
+}

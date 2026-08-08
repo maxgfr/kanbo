@@ -42,6 +42,7 @@ export type SettingsPanelProps = {
 }
 
 export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelProps) {
+  const store = usePorts()
   // One owner for the sync settings, and one writer. Two components each
   // holding a copy read at mount is what let a mode switch spread a stale
   // snapshot over the repository, branch and forge somebody had just typed.
@@ -71,7 +72,7 @@ export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelPr
     return writeSyncSettings({ ...next, remoteUrl })
   }
 
-  function applyMode(mode: 'local' | 'connected') {
+  async function applyMode(mode: 'local' | 'connected') {
     // Read what is stored rather than the copy taken at mount: the repository
     // section writes as you type, and spreading a snapshot from before that
     // would put the forge, repository and branch back the way they were.
@@ -81,6 +82,14 @@ export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelPr
     // The panel is where the switch was made, so it is where the answer
     // belongs. Nothing else survives the swap.
     handOver('settings')
+
+    // Awaited before leaving, and this is not belt-and-braces: writes are
+    // deferred so that typing does not re-serialise the whole log per
+    // character, and `pagehide` is too late to be relied on for a navigation we
+    // are choosing to make. Without it the other document loads a log that is
+    // missing whatever was written in the last moment — which, on a first run,
+    // is the entire project.
+    await store.flush()
 
     // The policy belongs to the document, so changing mode means loading the
     // other one — there is no version of this that avoids a navigation. Going
@@ -143,14 +152,14 @@ export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelPr
               <Button
                 variant={settings.mode === 'local' ? 'primary' : 'default'}
                 icon="lock"
-                onClick={() => applyMode('local')}
+                onClick={() => void applyMode('local')}
               >
                 Local
               </Button>
               <Button
                 variant={settings.mode === 'connected' ? 'primary' : 'default'}
                 icon="repo"
-                onClick={() => applyMode('connected')}
+                onClick={() => void applyMode('connected')}
               >
                 Repository
               </Button>
@@ -522,7 +531,8 @@ function PortabilitySection() {
           icon="archive"
           onClick={() => {
             // Once a file is on someone's disk, the operations in it are out of
-            // our hands and none of them may be folded into afterwards.
+            // our hands: none of them may be folded into afterwards, and none
+            // of them may still be sitting in a deferred write. `seal` flushes.
             store.seal()
             download(
               `kanbo-${project.key || 'project'}.json`,

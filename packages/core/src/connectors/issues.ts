@@ -85,6 +85,32 @@ export function typeFromLabels(labels: readonly string[]): ItemType {
   return labels.some((label) => /^(bug|defect|regression)$/i.test(label)) ? 'bug' : 'task'
 }
 
+/**
+ * Turn a forge's assignee logins into this project's people.
+ *
+ * This is what `Member.handle` is for, and until now it was for nothing: both
+ * connectors have always read `assignees` off an issue, and nothing ever looked
+ * at them. A handle is the only bridge available — a forge knows `@ada`, a
+ * board knows "Ada Lovelace", and there is no directory to ask.
+ *
+ * A login nobody claims is dropped rather than invented as a new member.
+ * Importing a repository would otherwise fill the team with every drive-by
+ * contributor a project has ever had, and a person on the board is a person
+ * somebody agreed to.
+ */
+export function membersForHandles(project: Project, logins: readonly string[]): readonly string[] {
+  const byHandle = new Map<string, string>()
+  for (const member of project.members) {
+    if (member.handle) byHandle.set(member.handle.toLowerCase().replace(/^@/, ''), member.id)
+  }
+
+  const found = logins
+    .map((login) => byHandle.get(login.toLowerCase().replace(/^@/, '')))
+    .filter((id): id is string => id !== undefined)
+
+  return [...new Set(found)]
+}
+
 export type IssueSyncPlan = {
   /** Issues with no matching item: they become new cards. */
   readonly toCreate: readonly RemoteIssue[]

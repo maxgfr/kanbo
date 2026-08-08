@@ -1,6 +1,7 @@
 import {
   type Item,
   type ItemType,
+  type LinkType,
   type Priority,
   type Project,
   byOrder,
@@ -291,7 +292,7 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
 
           <SubIssues project={project} item={item} onOpen={onOpen} />
 
-          <DependencyEditor project={project} item={item} />
+          <LinksEditor project={project} item={item} />
 
           <ItemComments project={project} itemId={item.id} />
 
@@ -343,77 +344,173 @@ export function ItemPanel({ project, itemId, onClose, onOpen }: ItemPanelProps) 
  * operation is in the log every device inherits it — so the check happens here,
  * at the point of intent, rather than being cleaned up later.
  */
-function DependencyEditor({ project, item }: { readonly project: Project; readonly item: Item }) {
+/**
+ * Every relation an item can carry, not just the one that had an editor.
+ *
+ * `LinkType` has always had four members. Two of them — `relates-to` and
+ * `duplicates` — could be stored, merged, exported and synced, and there was no
+ * way to create one: a card could arrive from an import carrying a duplicate
+ * link and the panel would not admit it existed.
+ *
+ * Only blocking has a direction that matters to anything else. The roadmap
+ * draws its leaders from `blocked-by`, the board flags a card from it, and
+ * `wouldCycle` refuses a loop — because a cycle makes the critical path
+ * non-terminating and, once in the log, every device inherits it. The other two
+ * are symmetric notes between peers: relating a card to itself is the only
+ * nonsense worth refusing, and a loop of "relates to" is not a loop at all.
+ */
+const RELATIONS: readonly {
+  readonly type: LinkType
+  readonly label: string
+  readonly empty: string
+  readonly add: string
+  /** The link written on the other item, so the pair reads the same both ways. */
+  readonly inverse: LinkType
+  readonly acyclic: boolean
+}[] = [
+  {
+    type: 'blocked-by',
+    label: 'Blocked by',
+    empty: 'Nothing is blocking this.',
+    add: 'Add a blocking dependency',
+    inverse: 'blocks',
+    acyclic: true,
+  },
+  {
+    type: 'blocks',
+    label: 'Blocks',
+    empty: 'This is not holding anything up.',
+    add: 'Add something this blocks',
+    inverse: 'blocked-by',
+    acyclic: true,
+  },
+  {
+    type: 'relates-to',
+    label: 'Related',
+    empty: 'Nothing related yet.',
+    add: 'Add a related item',
+    inverse: 'relates-to',
+    acyclic: false,
+  },
+  {
+    type: 'duplicates',
+    label: 'Duplicates',
+    empty: 'Not a duplicate of anything.',
+    add: 'Add an item this duplicates',
+    inverse: 'duplicates',
+    acyclic: false,
+  },
+]
+
+function LinksEditor({ project, item }: { readonly project: Project; readonly item: Item }) {
+  return (
+    <div className="kb-field">
+      {RELATIONS.map((relation) => (
+        <Relation key={relation.type} project={project} item={item} relation={relation} />
+      ))}
+    </div>
+  )
+}
+
+function Relation({
+  project,
+  item,
+  relation,
+}: {
+  readonly project: Project
+  readonly item: Item
+  readonly relation: (typeof RELATIONS)[number]
+}) {
   const dispatch = useDispatch()
   const [error, setError] = useState<string | null>(null)
 
+  const links = item.links.filter((link) => link.type === relation.type)
+
+  // Anything already related in *this* way is out; the same pair may hold two
+  // different relations, and hiding it would make the second uncreatable.
   const candidates = project.items.filter(
     (candidate) =>
       candidate.id !== item.id &&
       !candidate.archived &&
-      !item.links.some((link) => link.itemId === candidate.id),
+      !links.some((link) => link.itemId === candidate.id),
   )
 
   return (
-    <div className="kb-field">
-      <span className="kb-field__label">Blocked by</span>
+    <div className="kb-field" style={{ gap: 'var(--space-2)' }}>
+      <span className="kb-field__label">{relation.label}</span>
 
-      {item.links.filter((link) => link.type === 'blocked-by').length === 0 && (
-        <p className="kb-muted" style={{ margin: 0 }}>
-          Nothing is blocking this.
+      {links.length === 0 && (
+        <p className="kb-muted" style={{ margin: 0, fontSize: 'var(--step--1)' }}>
+          {relation.empty}
         </p>
       )}
 
-      {item.links
-        .filter((link) => link.type === 'blocked-by')
-        .map((link) => {
-          const blocker = itemById(project, link.itemId)
-          return (
-            <div key={link.itemId} className="kb-row">
-              <span className="data kb-muted">{blocker?.ref ?? link.itemId}</span>
-              <span>{blocker?.title ?? 'Unknown item'}</span>
-              <span className="kb-spacer" />
-              <Button
-                variant="quiet"
-                icon="close"
-                aria-label="Remove this dependency"
-                onClick={() =>
-                  void dispatch({
+      {links.map((link) => {
+        const other = itemById(project, link.itemId)
+        return (
+          <div key={link.itemId} className="kb-row">
+            <span className="data kb-muted">{other?.ref ?? link.itemId}</span>
+            <span>{other?.title ?? 'Unknown item'}</span>
+            <span className="kb-spacer" />
+            <Button
+              variant="quiet"
+              icon="close"
+              aria-label={`Remove the ${relation.label.toLowerCase()} link to ${other?.ref ?? link.itemId}`}
+              onClick={() =>
+                void dispatch(
+                  {
                     kind: 'item.unlink',
                     itemId: item.id,
                     targetId: link.itemId,
-                    linkType: 'blocked-by',
-                  })
-                }
-              />
-            </div>
-          )
-        })}
+                    linkType: relation.type,
+                  },
+                  {
+                    kind: 'item.unlink',
+                    itemId: link.itemId,
+                    targetId: item.id,
+                    linkType: relation.inverse,
+                  },
+                )
+              }
+            />
+          </div>
+        )
+      })}
 
       <select
         className="kb-select"
         value=""
-        aria-label="Add a blocking dependency"
+        aria-label={relation.add}
         onChange={(event) => {
           const targetId = event.target.value
           if (!targetId) return
-          // `wouldCycle` asks whether the *blocker* already depends on this
-          // item, which is the direction that closes the loop.
-          if (wouldCycle(project, targetId, item.id)) {
-            const blocker = itemById(project, targetId)
-            setError(
-              `${blocker?.ref ?? 'That item'} already depends on ${item.ref}. Linking these would make the chain circular.`,
-            )
-            return
+
+          if (relation.acyclic) {
+            // Asked in the direction that closes the loop: whether the item
+            // being pointed at already depends on this one.
+            const from = relation.type === 'blocked-by' ? targetId : item.id
+            const to = relation.type === 'blocked-by' ? item.id : targetId
+            if (wouldCycle(project, from, to)) {
+              const other = itemById(project, targetId)
+              setError(
+                `${other?.ref ?? 'That item'} is already on the other side of this chain. Linking these would make it circular.`,
+              )
+              return
+            }
           }
+
           setError(null)
           void dispatch(
-            { kind: 'item.link', itemId: item.id, link: { type: 'blocked-by', itemId: targetId } },
-            { kind: 'item.link', itemId: targetId, link: { type: 'blocks', itemId: item.id } },
+            { kind: 'item.link', itemId: item.id, link: { type: relation.type, itemId: targetId } },
+            {
+              kind: 'item.link',
+              itemId: targetId,
+              link: { type: relation.inverse, itemId: item.id },
+            },
           )
         }}
       >
-        <option value="">Add a dependency…</option>
+        <option value="">{relation.add}…</option>
         {candidates.map((candidate) => (
           <option key={candidate.id} value={candidate.id}>
             {candidate.ref} — {candidate.title}

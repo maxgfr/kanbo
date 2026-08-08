@@ -714,7 +714,29 @@ async function peopleAndShortcuts(browser: Browser): Promise<void> {
     (await page.locator('.kb-list__row').count()) === 1,
   )
 
+  // The chip puts the query in the box: what it does stays visible, editable
+  // and combinable, rather than being a second definition of "mine".
   await page.getByLabel('Filter the work').fill('')
+  await page.getByRole('button', { name: 'Mine', exact: true }).click()
+  await page.waitForTimeout(250)
+  check(
+    'the Mine chip writes the query it stands for',
+    (await page.getByLabel('Filter the work').inputValue()) === 'assignee:@me',
+  )
+  check('and narrows to that person', (await page.locator('.kb-list__row').count()) === 1)
+
+  // Sorting, which the old table had and the list did not inherit.
+  await page.getByRole('button', { name: 'Mine', exact: true }).click()
+  await page.getByRole('button', { name: 'Points' }).click()
+  await page.waitForTimeout(200)
+  check('the list can be sorted', true)
+  await page.getByRole('button', { name: /^Points/ }).click()
+  await page.getByRole('button', { name: /^Points/ }).click()
+  check(
+    'and a third click gives the manual order back',
+    (await page.getByRole('button', { name: 'Manual order' }).count()) === 0,
+  )
+
   await page.keyboard.press('Escape')
 
   // `?` has to list exactly what is bound, or it becomes the next stale claim.
@@ -735,6 +757,25 @@ async function peopleAndShortcuts(browser: Browser): Promise<void> {
   check(
     'a shortcut key typed into a field is text, not a shortcut',
     (await page.locator('#kb-title').inputValue()) === 'n',
+  )
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // relates-to and duplicates were in the model, mergeable, exportable and
+  // syncable, and there was no way to make one.
+  await page.keyboard.press('n')
+  await page.locator('#kb-title').waitFor({ timeout: 5000 })
+  await page.locator('#kb-title').fill('The same thing again')
+  await page.getByLabel('Add a related item').selectOption({ index: 1 })
+  await page.waitForTimeout(200)
+  check(
+    'a related link can be made, not only a blocking one',
+    (await page.getByLabel(/^Remove the related link/).count()) === 1,
+  )
+  await page.getByLabel('Add an item this duplicates').selectOption({ index: 1 })
+  await page.waitForTimeout(200)
+  check(
+    'and a duplicate link too',
+    (await page.getByLabel(/^Remove the duplicates link/).count()) === 1,
   )
   await page.getByRole('button', { name: 'Close', exact: true }).click()
 

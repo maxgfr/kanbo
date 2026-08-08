@@ -128,8 +128,14 @@ export type Label = {
  * A person, as this project knows them.
  *
  * There is no user directory and no authentication — a member is a name the
- * team agreed on, optionally tied to a forge handle so issue assignment can
- * round-trip.
+ * team agreed on. The handle is that name as the forge spells it, and it is
+ * the only bridge available between the two: an issue arrives assigned to
+ * `@ada`, this board knows "Ada Lovelace", and there is nothing to ask.
+ *
+ * It is read when issues are imported, so work that arrives already assigned
+ * lands on the right plate. It is not pushed the other way: assigning here
+ * does not assign there, and claiming otherwise would be the kind of promise
+ * this project does not make.
  */
 export type Member = {
   readonly id: string

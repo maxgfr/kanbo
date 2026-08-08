@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DAY } from '../metrics/flow.ts'
 import { reduceOperations } from '../ops/reduce.ts'
 import { anItem, op, statusOperations } from '../ops/testing.ts'
-import { type SearchContext, search, tokenise } from './search.ts'
+import { QUALIFIERS, type SearchContext, search, tokenise } from './search.ts'
 
 const NOW = Date.parse('2026-08-07T12:00:00Z')
 
@@ -198,5 +198,41 @@ describe('search', () => {
 
   it('does not match @me when nobody has claimed a seat', () => {
     expect(search('assignee:@me', { ...context, meId: null })).toEqual([])
+  })
+})
+
+/**
+ * The chips on the filter bar put these exact strings in the box, so a query
+ * here that does not parse is a control that silently does nothing — the same
+ * defect as a shortcut with no handler. An unrecognised qualifier is treated as
+ * free text rather than throwing, which is precisely how one would go unnoticed.
+ */
+describe('the filter presets', () => {
+  const PRESETS = ['assignee:@me', 'is:blocked', 'is:overdue', '-has:estimate', 'sprint:current']
+
+  it('are all read as qualifiers rather than as words', () => {
+    for (const query of PRESETS) {
+      const asQuery = tokenise(query)
+      expect(
+        asQuery.every((token) => token.kind === 'qualifier'),
+        query,
+      ).toBe(true)
+    }
+  })
+
+  it('name qualifiers the language actually implements', () => {
+    const known = new Set(QUALIFIERS.map((qualifier) => qualifier.key))
+    for (const query of PRESETS) {
+      for (const token of tokenise(query)) {
+        if (token.kind === 'qualifier')
+          expect(known.has(token.key), `${query} → ${token.key}`).toBe(true)
+      }
+    }
+  })
+
+  it('narrow rather than empty a board that holds the work', () => {
+    expect(refs('assignee:@me').length).toBeGreaterThan(0)
+    expect(refs('-has:estimate').length).toBeGreaterThan(0)
+    expect(refs('is:blocked').length).toBeGreaterThan(0)
   })
 })

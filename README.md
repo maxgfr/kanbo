@@ -45,7 +45,9 @@ Three things keep that honest, and CI fails if any of them slips:
 
 **One place the work is, and controls for how to look at it.** Columns or a list; grouped by status, sprint, person or priority; narrowed by a filter written in the same query language as everything else. Board, table and backlog were three destinations over the same items, each freezing one combination of those; they are one now. Grouping by sprint gives lanes — including a lane for the work in no sprint at all, which is the question a filter cannot ask.
 
-**People** — who is carrying what, read off the board rather than recorded anywhere: open work, points, what is blocked, and the oldest thing still in flight. It is also where you say which of them is you, which is what makes `assignee:@me` mean something. That answer is remembered by the browser and never written to the project: it is true of a machine, not of a board.
+**People** — who is carrying what, read off the board rather than recorded anywhere: open work, points, what is blocked, and the oldest thing still in flight. It is also where you say which of them is you, which is what makes `assignee:@me` mean something — and what the **Mine** filter stands on. That answer is remembered by the browser and never written to the project: it is true of a machine, not of a board.
+
+A person's **forge handle** is their name as the forge spells it, and it is the only bridge between the two: an issue arrives assigned to `@ada`, this board knows "Ada Lovelace", and there is no directory to ask. It is read when issues are imported, so work that arrives already assigned lands on the right plate. It is not pushed the other way, and the interface does not pretend it is.
 
 **Releases** — release notes generated from what actually shipped.
 

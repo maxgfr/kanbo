@@ -1,8 +1,18 @@
-import { type Group, type Item, type Project, blockedBy, byOrder, itemById } from '@kanbo/core'
+import {
+  type Group,
+  type Item,
+  type Project,
+  type Sort,
+  blockedBy,
+  byOrder,
+  itemById,
+  sortItems,
+} from '@kanbo/core'
 import { useState } from 'react'
 
 import { useDispatch } from '../../state/useStore.ts'
 import { isOverdue } from '../board/Card.tsx'
+import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 
@@ -19,7 +29,22 @@ import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
  * Groups are collapsible and every one is kept, including the empty ones: a
  * status nothing is in is a real answer, and the board treats it as a place to
  * drop a card rather than a column that does not exist.
+ *
+ * Sorting is per group rather than across the whole list. A list grouped by
+ * status and sorted by points answers "the biggest thing in each column", which
+ * is the question; sorting across groups would only shuffle rows inside boxes
+ * that stay where they are anyway. A third click returns to the manual order,
+ * because the order people dragged cards into is a real answer and the only one
+ * the board itself can show.
  */
+const SORTS: readonly { readonly key: string; readonly label: string }[] = [
+  { key: 'title', label: 'Title' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'estimate', label: 'Points' },
+  { key: 'dueOn', label: 'Due' },
+  { key: 'updatedAt', label: 'Updated' },
+]
+
 export function ListLayout({
   project,
   groups,
@@ -34,6 +59,16 @@ export function ListLayout({
   readonly onOpen: (itemId: string) => void
 }) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
+  // Null is the order people dragged cards into, which is a real answer and the
+  // only one a board can show. It has to be reachable again after a sort.
+  const [sort, setSort] = useState<Sort | null>(null)
+
+  function toggleSort(key: string) {
+    setSort((current) => {
+      if (current?.key !== key) return { key, direction: 'asc' }
+      return current.direction === 'asc' ? { key, direction: 'desc' } : null
+    })
+  }
 
   const toggle = (key: string) =>
     setClosed((current) => {
@@ -58,6 +93,28 @@ export function ListLayout({
 
   return (
     <div className="kb-list">
+      <div className="kb-list__sorts">
+        <span className="kb-toolbar__label">Sort by</span>
+        {SORTS.map((column) => (
+          <button
+            key={column.key}
+            type="button"
+            className="kb-palette__hint"
+            aria-pressed={sort?.key === column.key}
+            data-active={sort?.key === column.key || undefined}
+            onClick={() => toggleSort(column.key)}
+          >
+            {column.label}
+            {sort?.key === column.key && (sort.direction === 'asc' ? ' ↑' : ' ↓')}
+          </button>
+        ))}
+        {sort && (
+          <Button variant="quiet" onClick={() => setSort(null)}>
+            Manual order
+          </Button>
+        )}
+      </div>
+
       {groups.map((group) => {
         const key = group.key ?? '__none'
         const open = !closed.has(key)
@@ -91,11 +148,11 @@ export function ListLayout({
               (group.items.length === 0 ? (
                 <p className="kb-list__empty kb-muted">Nothing here</p>
               ) : (
-                group.items
-                  .toSorted(byOrder)
-                  .map((item) => (
+                (sort ? sortItems(group.items, [sort]) : group.items.toSorted(byOrder)).map(
+                  (item) => (
                     <Row key={item.id} project={project} item={item} day={day} onOpen={onOpen} />
-                  ))
+                  ),
+                )
               ))}
           </section>
         )

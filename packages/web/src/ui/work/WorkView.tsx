@@ -162,7 +162,13 @@ export function WorkView({ project, deliveries, onOpen, onAdd }: WorkViewProps) 
   return (
     <>
       {toolbar}
-      <FilterBar value={query} onChange={setQuery} shown={visible.length} total={active.length} />
+      <FilterBar
+        value={query}
+        onChange={setQuery}
+        shown={visible.length}
+        total={active.length}
+        me={readMeId()}
+      />
 
       {active.length === 0 && <BoardEmpty onAdd={() => onAdd()} />}
 

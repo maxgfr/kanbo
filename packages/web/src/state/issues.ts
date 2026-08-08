@@ -4,6 +4,7 @@ import {
   type RemoteIssue,
   byOrder,
   hasIssues,
+  membersForHandles,
   newItem,
   operationsForImport,
   planIssueSync,
@@ -88,6 +89,12 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
         title: issue.title,
         description: issue.body,
         type: typeFromLabels(issue.labels),
+        // Only on import. An issue that arrives assigned to someone the board
+        // knows should land on their plate; an issue that has been here a while
+        // should not have a local assignment overwritten every reconcile,
+        // because assigning in Kanbo is a real decision and the forge is not
+        // more authoritative about it.
+        assignees: membersForHandles(project, issue.assignees),
         ...(issue.state === 'closed' && done
           ? { statusId: done.id }
           : backlog

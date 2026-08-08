@@ -75,6 +75,16 @@ function start(): void {
   }
 
   const store = createStore()
+
+  // The one moment a deferred write must not still be deferred. `pagehide`
+  // fires on close, on navigation, and when the tab enters the back/forward
+  // cache — unlike `beforeunload`, which browsers increasingly decline to fire
+  // at all on mobile.
+  window.addEventListener('pagehide', () => void store.flush())
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') void store.flush()
+  })
+
   store
     .load()
     .then(() => {

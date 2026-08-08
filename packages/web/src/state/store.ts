@@ -14,6 +14,15 @@ import { browserClock, browserRandom, browserStorage, deviceId } from '@kanbo/ad
 const LOG_KEY = 'log'
 
 /**
+ * How long a burst of edits waits before it becomes one write.
+ *
+ * Short enough to be over before anyone reaches for the tab close, long enough
+ * that a sentence typed into a title is one serialisation of the log rather
+ * than thirty.
+ */
+const WRITE_AFTER = 400
+
+/**
  * The whole application state, and the one place operations are written.
  *
  * There is no reducer here beyond the domain's own: the store holds a log,
@@ -69,6 +78,9 @@ export class Store {
    */
   seal = (): void => {
     this.supersedable = null
+    // Nothing may leave unwritten: a repository that holds an operation this
+    // browser would lose on reload is the worst of both.
+    void this.flush()
   }
 
   isReady = (): boolean => this.ready
@@ -123,9 +135,11 @@ export class Store {
     this.snapshot = reduceOperations(this.log)
     this.emit()
 
-    // Persisted after the screen updates: the board must feel immediate, and a
-    // failed write is reported rather than blocking the interaction.
-    await this.persist()
+    // Not awaited, and that is the change: the screen is already right, and the
+    // write catches up. `dispatch` resolving means "applied", not "on disk" —
+    // `flush` is what means on disk, and everything that hands the log to
+    // anyone else calls it.
+    this.schedulePersist()
   }
 
   /** Fold in operations that arrived from elsewhere — another device, an import. */
@@ -139,6 +153,42 @@ export class Store {
     this.log = merged
     this.snapshot = reduceOperations(this.log)
     this.emit()
+    // Immediately: work that arrived from elsewhere is work this device would
+    // have no way to ask for again.
+    await this.persist()
+  }
+
+  /**
+   * Ask for a write, and let a run of them become one.
+   *
+   * The log lives in memory and is authoritative there — what is on screen is
+   * always exactly what the log says, which is the guarantee this store exists
+   * to keep. What is deferred is only the *write*: serialising the whole log to
+   * JSON and handing it to IndexedDB on every keystroke is work proportional to
+   * the project's entire history, paid per character, and it is the reason a
+   * long-lived board gets slower to type in rather than staying the same.
+   *
+   * The window is short and it is closed on the way out — `pagehide` fires when
+   * a tab is closed, navigated away from, or put in the back/forward cache, and
+   * the flush is synchronous from React's point of view. Anything that hands
+   * the log to someone else — a sync, an export — flushes first, so nothing can
+   * be pushed that has not been saved.
+   */
+  private pending: ReturnType<typeof setTimeout> | undefined
+
+  private schedulePersist(): void {
+    if (this.pending !== undefined) return
+    this.pending = globalThis.setTimeout(() => {
+      this.pending = undefined
+      void this.persist()
+    }, WRITE_AFTER)
+  }
+
+  /** Write now if anything is waiting. Called before the log leaves, and on the way out. */
+  flush = async (): Promise<void> => {
+    if (this.pending === undefined) return
+    globalThis.clearTimeout(this.pending)
+    this.pending = undefined
     await this.persist()
   }
 

@@ -97,6 +97,11 @@ describe('typing into the board', () => {
   })
 })
 
+/**
+ * Writing is deferred; being written is not optional. The contract `dispatch`
+ * keeps is "applied", and `flush` is what makes it "on disk" — so everything
+ * below asks for the flush rather than assuming the write already happened.
+ */
 describe('a write that does not land', () => {
   function refusingPorts() {
     const ports = tickingPorts()
@@ -120,6 +125,7 @@ describe('a write that does not land', () => {
 
     const item = newItem(store.getProject(), ports, { title: 'Ship' })
     await store.dispatch({ kind: 'item.create', item })
+    await store.flush()
 
     expect(store.getFailure()?.message).toBe('The database is full.')
   })
@@ -144,10 +150,12 @@ describe('a write that does not land', () => {
 
     const item = newItem(store.getProject(), ports, { title: 'Ship' })
     await store.dispatch({ kind: 'item.create', item })
+    await store.flush()
     expect(store.getFailure()).not.toBeNull()
 
     refuse = false
     await store.dispatch({ kind: 'item.set', itemId: item.id, patch: { title: 'Shipped' } })
+    await store.flush()
     expect(store.getFailure()).toBeNull()
   })
 
@@ -158,7 +166,94 @@ describe('a write that does not land', () => {
 
     const item = newItem(store.getProject(), ports, { title: 'Ship' })
     await store.dispatch({ kind: 'item.create', item })
+    await store.flush()
 
     expect(store.getProject().items).toHaveLength(1)
+  })
+})
+
+describe('deferring the write', () => {
+  /** Storage that counts how often the whole log was serialised and handed over. */
+  function countingPorts() {
+    const ports = tickingPorts()
+    let writes = 0
+    return {
+      ports: {
+        ...ports,
+        storage: {
+          ...ports.storage,
+          async set(key: string, value: Uint8Array) {
+            writes++
+            await ports.storage.set(key, value)
+          },
+        },
+      },
+      writes: () => writes,
+    }
+  }
+
+  it('turns a burst of edits into one write rather than one per character', async () => {
+    // The log is serialised in full every time, so this is work proportional to
+    // the whole history paid per keystroke — the reason a long-lived board gets
+    // slower to type in.
+    const { ports, writes } = countingPorts()
+    const store = new Store(ports, 'device-a')
+    await store.load()
+
+    const item = newItem(store.getProject(), ports, { title: '' })
+    await store.dispatch({ kind: 'item.create', item })
+    await type(store, item.id, 'Ship the departure board')
+    await store.flush()
+
+    expect(writes()).toBeLessThan(4)
+  })
+
+  it('has the change on screen before the write, not after', async () => {
+    const { ports } = countingPorts()
+    const store = new Store(ports, 'device-a')
+    await store.load()
+
+    const item = newItem(store.getProject(), ports, { title: 'Ship' })
+    await store.dispatch({ kind: 'item.create', item })
+
+    expect(store.getProject().items).toHaveLength(1)
+  })
+
+  it('writes what is waiting when the log is about to leave', async () => {
+    // `seal` is called before a sync reads the log and before an export writes
+    // a file. A repository holding an operation this browser would lose on
+    // reload is the worst of both.
+    const { ports, writes } = countingPorts()
+    const store = new Store(ports, 'device-a')
+    await store.load()
+
+    const item = newItem(store.getProject(), ports, { title: 'Ship' })
+    await store.dispatch({ kind: 'item.create', item })
+    store.seal()
+    await store.flush()
+
+    expect(writes()).toBeGreaterThan(0)
+  })
+
+  it('writes immediately for work that arrived from elsewhere', async () => {
+    // A pull is not a keystroke: those operations cannot be asked for again.
+    const { ports, writes } = countingPorts()
+    const store = new Store(ports, 'device-a')
+    await store.load()
+
+    const item = newItem(store.getProject(), ports, { title: 'From Bob' })
+    await store.absorb([
+      {
+        id: 'b1',
+        deviceId: 'device-b',
+        lamport: 9,
+        at: 1_700_000_000_000,
+        authorId: null,
+        kind: 'item.create',
+        item,
+      },
+    ])
+
+    expect(writes()).toBeGreaterThan(0)
   })
 })
