@@ -1,6 +1,7 @@
 import { type Member, type Project, busiest, workloads } from '@kanbo/core'
 import { useState } from 'react'
 
+import { readSyncSettings } from '../../boot/syncSettings.ts'
 import { readMeId, writeMeId } from '../../state/identity.ts'
 import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
@@ -34,6 +35,13 @@ export function PeopleView({
   const rows = workloads(project, Date.now())
   const scale = busiest(rows)
 
+  // Named after the forge that is actually configured. "Forge handle" is a word
+  // this project invented, and the field was a bare input with a placeholder —
+  // nothing on screen said what it was for or when it was read.
+  const sync = readSyncSettings()
+  const forge = sync.forge === 'gitlab' ? 'GitLab' : 'GitHub'
+  const connected = sync.mode === 'connected'
+
   function claim(memberId: string | null) {
     writeMeId(memberId)
     setMe(memberId)
@@ -54,9 +62,24 @@ export function PeopleView({
           <h1 style={{ fontSize: 'var(--step-2)', margin: 0, letterSpacing: '-0.02em' }}>People</h1>
           <p className="kb-muted" style={{ margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
             There is no user directory and no accounts — a person here is a name the team agreed on.
-            The handle is optional and exists so assignment can round-trip with a forge. Saying
-            which one is you is remembered by this browser and never written to the project, because
-            it is true of a machine rather than of a board.
+            Saying which one is you is remembered by this browser and never written to the project,
+            because it is true of a machine rather than of a board.
+          </p>
+          <p className="kb-muted" style={{ margin: 'var(--space-2) 0 0', lineHeight: 1.6 }}>
+            {connected ? (
+              <>
+                The <strong>{forge} username</strong> is optional, and is read in one place: when
+                you reconcile issues, an issue assigned to that username arrives on this person's
+                plate. It is not sent the other way — assigning someone here does not assign them on{' '}
+                {forge}.
+              </>
+            ) : (
+              <>
+                The <strong>forge username</strong> is only read in repository mode, where imported
+                issues use it to land on the right person. In local mode there is no forge, so you
+                can leave it empty.
+              </>
+            )}
           </p>
         </div>
 
@@ -86,34 +109,49 @@ export function PeopleView({
                 opacity: row.memberId === null && row.open.length === 0 ? 0.6 : 1,
               }}
             >
-              <div className="kb-row" style={{ flexWrap: 'wrap' }}>
+              <div className="kb-row" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 {member ? (
                   <>
-                    <input
-                      className="kb-input"
-                      style={{ flex: '1 1 12rem', minWidth: '8rem' }}
-                      value={member.name}
-                      aria-label={`Name of ${member.name}`}
-                      onChange={(event) =>
-                        void dispatch({
-                          kind: 'member.upsert',
-                          member: { ...member, name: event.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      className="kb-input data"
-                      style={{ width: '10rem' }}
-                      value={member.handle ?? ''}
-                      placeholder="forge handle"
-                      aria-label={`Forge handle for ${member.name}`}
-                      onChange={(event) =>
-                        void dispatch({
-                          kind: 'member.upsert',
-                          member: { ...member, handle: event.target.value || null },
-                        })
-                      }
-                    />
+                    <div className="kb-field" style={{ flex: '1 1 12rem', minWidth: '8rem' }}>
+                      <label className="kb-field__label" htmlFor={`kb-person-${member.id}`}>
+                        Name
+                      </label>
+                      <input
+                        id={`kb-person-${member.id}`}
+                        className="kb-input"
+                        value={member.name}
+                        aria-label={`Name of ${member.name}`}
+                        onChange={(event) =>
+                          void dispatch({
+                            kind: 'member.upsert',
+                            member: { ...member, name: event.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="kb-field" style={{ width: '12rem' }}>
+                      <label className="kb-field__label" htmlFor={`kb-handle-${member.id}`}>
+                        {connected ? `${forge} username` : 'Forge username'}
+                      </label>
+                      <input
+                        id={`kb-handle-${member.id}`}
+                        className="kb-input data"
+                        value={member.handle ?? ''}
+                        placeholder={connected ? '@ada' : 'unused in local mode'}
+                        aria-label={`${forge} username for ${member.name}`}
+                        title={
+                          connected
+                            ? `Issues assigned to this ${forge} username arrive assigned to ${member.name}.`
+                            : 'Only read in repository mode, when issues are reconciled.'
+                        }
+                        onChange={(event) =>
+                          void dispatch({
+                            kind: 'member.upsert',
+                            member: { ...member, handle: event.target.value || null },
+                          })
+                        }
+                      />
+                    </div>
                     <Button
                       variant={me === member.id ? 'primary' : 'default'}
                       icon={me === member.id ? 'check' : 'person'}

@@ -364,7 +364,14 @@ function overLabel(project: Project, id: string): string {
  * — the one case this screen exists for — could only get a column by going to
  * settings, which is the detour `AddColumn` was added to remove.
  */
-export function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
+export function BoardEmpty({
+  onAdd,
+  into,
+}: {
+  readonly onAdd: () => void
+  /** The sprint a new card will land in, when the board is showing one. */
+  readonly into?: string | undefined
+}) {
   return (
     <div
       className="kb-row"
@@ -382,8 +389,10 @@ export function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
         across with the mouse, or focus it and press space.
       </span>
       <span className="kb-spacer" />
+      {/* Named, because the board is filtered and the card has to go somewhere:
+          saying which sprint beats creating it silently and elsewhere. */}
       <Button variant="primary" icon="plus" onClick={onAdd}>
-        Add an item
+        {into ? `Add an item to ${into}` : 'Add an item'}
       </Button>
     </div>
   )

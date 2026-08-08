@@ -57,6 +57,17 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  /**
+   * Which sprint the work is narrowed to, held here rather than in the view.
+   *
+   * It decides what a *new* card belongs to, and cards are created from three
+   * places that are not all inside Work: the column's own button, the empty
+   * prompt, and `n` from anywhere. Left in the view, two of those three would
+   * disagree with the one on screen.
+   *
+   * `null` is every sprint; `''` is the ones in no sprint at all.
+   */
+  const [sprint, setSprint] = useState<string | null>(null)
   const [delivery, setDelivery] = useState<DeliveryCache | null>(null)
   // Claiming a seat changes what `@me` resolves to, and both the palette and
   // the filter read it while rendering rather than holding a copy.
@@ -106,11 +117,16 @@ export function App() {
       const item = newItem(project, ports, {
         title: 'Untitled',
         ...((statusId ?? first?.id) ? { statusId: statusId ?? first!.id } : {}),
+        // A card added while the board is showing one sprint belongs to that
+        // sprint. Without this it was created with no sprint at all and then
+        // immediately hidden by the very filter that was on screen when you
+        // asked for it — so the button appeared to do nothing.
+        ...(sprint ? { iterationId: sprint } : {}),
       })
       await dispatch({ kind: 'item.create', item })
       setOpenItem(item.id)
     },
-    [project, dispatch],
+    [project, dispatch, sprint],
   )
 
   /**
@@ -325,6 +341,8 @@ export function App() {
           <WorkView
             project={project}
             deliveries={deliveriesFor(store, delivery)}
+            sprint={sprint}
+            onSprint={setSprint}
             onOpen={setOpenItem}
             onAdd={(id) => void addItem(id)}
           />

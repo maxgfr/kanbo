@@ -48,16 +48,21 @@ const GROUPS: readonly { key: GroupKey; label: string }[] = [
 export type WorkViewProps = {
   readonly project: Project
   readonly deliveries: ReadonlyMap<string, ItemDelivery>
+  /**
+   * Held by the shell rather than here, because it decides what a new card
+   * belongs to and cards are created from outside this view as well.
+   * `null` is every sprint; `''` is the ones in no sprint at all.
+   */
+  readonly sprint: string | null
+  readonly onSprint: (sprint: string | null) => void
   readonly onOpen: (itemId: string) => void
   readonly onAdd: (statusId?: string) => void
 }
 
-export function WorkView({ project, deliveries, onOpen, onAdd }: WorkViewProps) {
+export function WorkView({ project, deliveries, sprint, onSprint, onOpen, onAdd }: WorkViewProps) {
   const [layout, setLayout] = useState<Layout>('columns')
   const [groupBy, setGroupBy] = useState<GroupKey>('status')
   const [query, setQuery] = useState('')
-  /** `null` is every sprint; `''` is the ones in no sprint at all. */
-  const [sprint, setSprint] = useState<string | null>(null)
 
   const day = isoDay(Date.now())
   const iterations = project.iterations.toSorted(byOrder)
@@ -132,9 +137,7 @@ export function WorkView({ project, deliveries, onOpen, onAdd }: WorkViewProps) 
           className="kb-select"
           aria-label="Filter by sprint"
           value={sprint ?? '__all'}
-          onChange={(event) =>
-            setSprint(event.target.value === '__all' ? null : event.target.value)
-          }
+          onChange={(event) => onSprint(event.target.value === '__all' ? null : event.target.value)}
         >
           <option value="__all">All</option>
           {current && <option value={current.id}>Current sprint</option>}
@@ -170,7 +173,12 @@ export function WorkView({ project, deliveries, onOpen, onAdd }: WorkViewProps) 
         me={readMeId()}
       />
 
-      {active.length === 0 && <BoardEmpty onAdd={() => onAdd()} />}
+      {active.length === 0 && (
+        <BoardEmpty
+          onAdd={() => onAdd()}
+          {...(sprint ? { into: iterations.find((it) => it.id === sprint)?.name } : {})}
+        />
+      )}
 
       {layout === 'list' ? (
         <ListLayout

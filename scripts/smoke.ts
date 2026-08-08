@@ -760,6 +760,46 @@ async function peopleAndShortcuts(browser: Browser): Promise<void> {
   )
   await page.getByRole('button', { name: 'Close', exact: true }).click()
 
+  // A card added while the board is showing one sprint belongs to that sprint.
+  // It used to be created with no sprint and then hidden by the very filter
+  // that was on screen when you asked for it, so the button did nothing you
+  // could see.
+  await page.getByRole('button', { name: 'Sprints' }).click()
+  await page.getByRole('button', { name: 'Start a sprint' }).click()
+  await page.getByRole('button', { name: 'Work' }).click()
+  await page.getByLabel('Filter by sprint').selectOption({ index: 1 })
+  await page.waitForTimeout(200)
+
+  const inSprintBefore = await page.locator('.kb-card').count()
+  await page
+    .getByRole('button', { name: /^Add an item/ })
+    .first()
+    .click()
+  await page.locator('#kb-title').waitFor({ timeout: 5000 })
+  await page.locator('#kb-title').fill('Planned into the sprint')
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  await page.waitForTimeout(250)
+
+  check(
+    'a card added while a sprint is showing lands in that sprint',
+    (await page.locator('.kb-card').count()) === inSprintBefore + 1,
+  )
+
+  // And `n`, which is fired from anywhere and so cannot read the view's state.
+  await page.locator('body').click()
+  await page.keyboard.press('n')
+  await page.locator('#kb-title').waitFor({ timeout: 5000 })
+  await page.locator('#kb-title').fill('Added with the keyboard')
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  await page.waitForTimeout(250)
+  check(
+    'and so does one added with the keyboard from anywhere',
+    (await page.locator('.kb-card').count()) === inSprintBefore + 2,
+  )
+
+  await page.getByLabel('Filter by sprint').selectOption('__all')
+  await page.waitForTimeout(200)
+
   // relates-to and duplicates were in the model, mergeable, exportable and
   // syncable, and there was no way to make one.
   await page.keyboard.press('n')
