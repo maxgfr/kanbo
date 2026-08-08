@@ -3,6 +3,7 @@ import {
   type ItemDelivery,
   type Project,
   byOrder,
+  currentIteration,
   groupItems,
   isoDay,
   search,
@@ -66,7 +67,7 @@ export function WorkView({ project, deliveries, sprint, onSprint, onOpen, onAdd 
 
   const day = isoDay(Date.now())
   const iterations = project.iterations.toSorted(byOrder)
-  const current = iterations.find((entry) => entry.startsAt <= day && entry.endsAt >= day)
+  const current = currentIteration(project, Date.now()) ?? undefined
 
   const active = useMemo(() => project.items.filter((item) => !item.archived), [project.items])
 

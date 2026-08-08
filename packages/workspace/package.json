@@ -1,0 +1,16 @@
+{
+  "name": "@kanbo/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "One Kanbo project on a filesystem: open it, read it, change it. No rendering.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@kanbo/adapters-node": "workspace:*",
+    "@kanbo/core": "workspace:*",
+    "@kanbo/crypto": "workspace:*"
+  }
+}

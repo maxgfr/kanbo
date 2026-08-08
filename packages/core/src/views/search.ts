@@ -12,7 +12,7 @@
  */
 import type { Item, Project } from '../model/types.ts'
 import { isBlocked } from '../model/project.ts'
-import { isoDay } from '../metrics/flow.ts'
+import { currentIteration, isoDay } from '../metrics/flow.ts'
 
 export type Token =
   | { readonly kind: 'text'; readonly value: string }
@@ -114,9 +114,8 @@ function matchesQualifier(
     case 'iteration': {
       if (value === 'none') return item.iterationId === null
       if (value === 'current') {
-        const today = isoDay(now)
-        const current = project.iterations.find((it) => it.startsAt <= today && it.endsAt >= today)
-        return current !== undefined && item.iterationId === current.id
+        const current = currentIteration(project, now)
+        return current !== null && item.iterationId === current.id
       }
       const named = project.iterations.find(
         (it) => it.id === token.value || it.name.toLowerCase() === value,

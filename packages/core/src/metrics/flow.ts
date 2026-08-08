@@ -35,6 +35,20 @@ export function daysBetween(from: string, to: string): readonly string[] {
   return days
 }
 
+/**
+ * The sprint today falls inside, if there is one.
+ *
+ * `sprint:current` in the query language, the sprint filter on the board and
+ * the sprint the burndown opens on were three copies of this line, and three
+ * copies of a rule is three chances to answer differently. A view that wants a
+ * fallback — "show the last sprint if none is running" — makes that decision
+ * itself; this answers the question that was asked.
+ */
+export function currentIteration(project: Project, now: number): Iteration | null {
+  const today = isoDay(now)
+  return project.iterations.find((it) => it.startsAt <= today && it.endsAt >= today) ?? null
+}
+
 export type Transition = {
   readonly itemId: string
   readonly at: number

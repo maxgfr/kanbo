@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@kanbo/core": "workspace:*",
-    "@kanbo/adapters-node": "workspace:*"
+    "@kanbo/adapters-node": "workspace:*",
+    "@kanbo/workspace": "workspace:*"
   }
 }

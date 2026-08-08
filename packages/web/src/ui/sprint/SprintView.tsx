@@ -1,4 +1,11 @@
-import { type Project, averageVelocity, burndown, byOrder, isoDay, velocity } from '@kanbo/core'
+import {
+  type Project,
+  averageVelocity,
+  burndown,
+  byOrder,
+  currentIteration,
+  velocity,
+} from '@kanbo/core'
 import { useState } from 'react'
 
 import { useDispatch } from '../../state/useStore.ts'
@@ -15,11 +22,11 @@ export function SprintView({
   readonly onOpen: (itemId: string) => void
 }) {
   const dispatch = useDispatch()
-  const today = isoDay(Date.now())
   const iterations = project.iterations.toSorted(byOrder)
 
-  const current =
-    iterations.find((it) => it.startsAt <= today && it.endsAt >= today) ?? iterations.at(-1) ?? null
+  // No sprint running is not the same as nothing to show: falling back to the
+  // last one is this view's decision, not the domain's.
+  const current = currentIteration(project, Date.now()) ?? iterations.at(-1) ?? null
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = iterations.find((it) => it.id === selectedId) ?? current

@@ -33,7 +33,9 @@
       "@kanbo/adapters-web": ["packages/adapters-web/src/index.ts"],
       "@kanbo/adapters-web/*": ["packages/adapters-web/src/*"],
       "@kanbo/adapters-node": ["packages/adapters-node/src/index.ts"],
-      "@kanbo/adapters-node/*": ["packages/adapters-node/src/*"]
+      "@kanbo/adapters-node/*": ["packages/adapters-node/src/*"],
+      "@kanbo/workspace": ["packages/workspace/src/index.ts"],
+      "@kanbo/workspace/*": ["packages/workspace/src/*"]
     }
   },
   "include": ["packages/*/src/**/*", "packages/*/*.config.ts", "scripts/**/*", "vitest.config.ts"],
