@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "description": "Browser implementations of the @kanbo/core ports: IndexedDB, WebCrypto, fetch.",
   "exports": {

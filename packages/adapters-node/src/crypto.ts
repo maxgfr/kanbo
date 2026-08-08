@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Ciphertext, Crypto as CryptoPort, Storage } from '@kanbo/core'
-import { readToken as unframeToken, storeToken as frameToken } from '@kanbo/crypto'
+import { readToken as unframeToken, storeToken as frameToken } from '@kanbo/crypto/token'
 
 /**
  * Encryption at rest, and an honest account of what it is worth here.

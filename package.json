@@ -1,5 +1,5 @@
 {
-  "name": "kanbo",
+  "name": "kanbo-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,9 @@
     "test:watch": "vitest",
     "check:network": "node scripts/check-network-boundary.ts",
     "smoke": "node scripts/smoke.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm smoke",
+    "build:dist": "node scripts/build-dist.ts",
+    "check:dist": "node scripts/check-dist.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:dist && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm check:dist && pnpm smoke",
     "check:cli": "node scripts/check-cli.ts",
     "check:parity": "node scripts/check-parity.ts",
     "check:mcp": "node scripts/check-mcp.ts"
@@ -29,6 +31,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/node": "^24.3.0",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "oxlint": "^1.77.0",
     "playwright-core": "^1.62.1",

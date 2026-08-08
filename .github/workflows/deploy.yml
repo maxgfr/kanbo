@@ -58,6 +58,9 @@ jobs:
       # Run again despite `verify` above, because this build is a different one:
       # it carries KANBO_BASE, and the artifact that gets deployed is the one
       # whose policies have to be checked.
+      # check:network now asserts things about the published bins too, so they
+      # have to exist before it runs.
+      - run: pnpm build:dist
       - run: pnpm check:network
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

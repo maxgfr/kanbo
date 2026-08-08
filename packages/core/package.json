@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "description": "Kanbo domain model. Pure TypeScript: no browser, no Node, no I/O.",
   "exports": {

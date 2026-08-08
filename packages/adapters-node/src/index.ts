@@ -84,4 +84,12 @@ export async function nodeDeviceId(storage: Storage): Promise<string> {
 
 export { nodeHttp } from './http.ts'
 export { nodeCrypto, storeToken, readToken } from './crypto.ts'
-export { encryptShare, decryptShare, measureArgonCost, type ShareResult } from '@kanbo/crypto'
+
+/**
+ * Share encryption is deliberately *not* re-exported here.
+ *
+ * It would be a convenience with a price: this barrel is what the MCP server
+ * reaches for its token vault, and re-exporting Argon2id through it drags six
+ * hundred kilobytes of wasm into a published bin that never encrypts a share.
+ * Whoever wants it imports `@kanbo/crypto` and says so.
+ */

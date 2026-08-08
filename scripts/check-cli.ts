@@ -10,7 +10,7 @@
  * prints. It is deliberately end-to-end: nothing here is mocked, and the same
  * reducer, merge and query language the board uses do the work.
  */
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -19,7 +19,20 @@ import { promisify } from 'node:util'
 
 const run = promisify(execFile)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const CLI = join(ROOT, 'packages/cli/src/main.ts')
+/**
+ * Which kanbo is under test.
+ *
+ * The default is the source, because that is what the README claims. The same
+ * assertions run a second and third time against the bundled bin and against
+ * that bin installed from a packed tarball — see `scripts/check-dist.ts`. One
+ * set of assertions, three subjects: a published artifact that behaves
+ * differently from the source is exactly the failure this parameter exists to
+ * catch, and duplicating the assertions to look for it would defeat the point.
+ */
+const ENTRY = process.env['KANBO_CLI'] ?? join(ROOT, 'packages/cli/src/main.ts')
+const FROM_SOURCE = /\.[cm]?ts$/.test(ENTRY)
+const PROGRAM = FROM_SOURCE ? 'node' : ENTRY
+const PREFIX: readonly string[] = FROM_SOURCE ? [ENTRY] : []
 
 const failures: string[] = []
 const checks: string[] = []
@@ -33,10 +46,35 @@ const home = await mkdtemp(join(tmpdir(), 'kanbo-cli-'))
 const second = await mkdtemp(join(tmpdir(), 'kanbo-cli-'))
 
 async function kanbo(where: string, ...args: string[]): Promise<string> {
-  const { stdout } = await run('node', [CLI, ...args], {
+  const { stdout } = await run(PROGRAM, [...PREFIX, ...args], {
     env: { ...process.env, KANBO_HOME: where },
   })
   return stdout
+}
+
+/**
+ * The same, for the one command that reads stdin.
+ *
+ * This used to be `sh -c "… node ${CLI} import < file"`, which hard-coded the
+ * interpreter and could not be pointed at an installed shim — and put a
+ * temporary path through a shell's quoting rules for no reason.
+ */
+function kanboStdin(where: string, input: string, ...args: string[]): Promise<string> {
+  return new Promise((settle, reject) => {
+    const child = spawn(PROGRAM, [...PREFIX, ...args], {
+      env: { ...process.env, KANBO_HOME: where },
+      stdio: ['pipe', 'pipe', 'inherit'],
+    })
+    let out = ''
+    child.stdout.on('data', (chunk: Buffer) => {
+      out += chunk.toString()
+    })
+    child.once('error', reject)
+    child.once('close', (code) =>
+      code === 0 ? settle(out) : reject(new Error(`${args[0]} exited with ${code}`)),
+    )
+    child.stdin.end(input)
+  })
 }
 
 try {
@@ -95,7 +133,7 @@ try {
   const exported = await kanbo(home, 'export')
   const file = join(second, 'export.json')
   await writeFile(file, exported)
-  await run('sh', ['-c', `KANBO_HOME=${second} node ${CLI} import < ${file}`])
+  await kanboStdin(second, exported, 'import')
 
   const rebuilt = await kanbo(second, 'board')
   check(
@@ -106,7 +144,7 @@ try {
 
   // Importing the same file twice must be a no-op: the merge is a union.
   const before = await kanbo(second, 'status')
-  await run('sh', ['-c', `KANBO_HOME=${second} node ${CLI} import < ${file}`])
+  await kanboStdin(second, exported, 'import')
   const after = await kanbo(second, 'status')
   check('importing twice changes nothing', before === after)
 
@@ -154,4 +192,5 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log(`\n✓ CLI: ${checks.length} checks passed with no browser involved.`)
+// Three runs land in one CI log, so each says which subject it was driving.
+console.log(`\n✓ CLI: ${checks.length} checks passed with no browser involved (${ENTRY}).`)

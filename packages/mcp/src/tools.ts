@@ -24,7 +24,6 @@ import {
   metrics,
   milestoneDelete,
   milestoneUpsert,
-  openWorkspace,
   people,
   personDelete,
   personUpsert,
@@ -680,5 +679,3 @@ export function registerTools(server: McpServer, context: ToolContext): readonly
 
   return names
 }
-
-export { openWorkspace }

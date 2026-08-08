@@ -226,10 +226,10 @@ function isNamespaceUri(url: string): boolean {
   return NAMESPACE_URIS.some((namespace) => url.startsWith(namespace))
 }
 
-async function checkBundle(): Promise<void> {
-  const assets = await walk(DIST, (path) => /\.(js|css)$/.test(path))
+async function checkBundle(dir: string, label: string): Promise<void> {
+  const assets = await walk(dir, (path) => /\.(js|css)$/.test(path))
   if (assets.length === 0) {
-    fail(`No built assets found in ${relative(ROOT, DIST)}. Run the build first.`)
+    fail(`No built assets found in ${label}. Run the build first.`)
     return
   }
 
@@ -246,9 +246,107 @@ async function checkBundle(): Promise<void> {
   }
 }
 
+/**
+ * The npm bins, which is what most people will actually run.
+ *
+ * The walk above skips `dist` and reads only TypeScript, so the published
+ * bundles were invisible to this guard: no false positives, and no coverage
+ * either. That is the worse failure — a guard that has nothing to say about the
+ * artifact is a guard people believe anyway.
+ *
+ * Two assertions, on a bundle deliberately left unminified so that counting is
+ * meaningful.
+ */
+const DIST_BINS = ['packages/npm/dist/kanbo.js', 'packages/npm/dist/kanbo-mcp.js']
+
+/**
+ * Exactly one `fetch(` per bin: the one inside `nodeHttp`.
+ *
+ * Written as a budget rather than a ban for the same reason `TRANSPORT_MODULES`
+ * is a list rather than a rule — if a future version of the MCP SDK drags a
+ * second call site in, the build fails and somebody either shakes it out or
+ * raises this number *and argues for it in the pull request*.
+ */
+const DIST_NETWORK_BUDGET: Record<string, number> = {
+  'fetch(': 1,
+  XMLHttpRequest: 0,
+  WebSocket: 0,
+  EventSource: 0,
+  sendBeacon: 0,
+}
+
+/** The refusal inside `nodeHttp`, which must survive being bundled. */
+const ORIGIN_REFUSAL = 'Refused a request to'
+
+/**
+ * The other half, and only in the command that can set an address.
+ *
+ * `kanbo remote set` refuses anything but https before it is stored. The MCP
+ * server deliberately exposes no tool for configuring a forge — an agent may
+ * sync, it may not decide where to — so this string is correctly shaken out of
+ * that bin, and requiring it there would be requiring a capability we withheld
+ * on purpose.
+ */
+const HTTPS_ONLY = {
+  text: 'The forge API must be an https address.',
+  bin: 'packages/npm/dist/kanbo.js',
+}
+
+/**
+ * Why the plain-HTTP scan above is *not* run over these bins.
+ *
+ * That check exists because a `http://` URL in the web bundle is dead code the
+ * page's own policy would block — it can only be a mistake. A Node bin is a
+ * different argument: the MCP SDK vendors a JSON Schema validator whose dialect
+ * identifiers (`http://json-schema.org/draft-07/schema#`) and doc-comment links
+ * are strings that are never dereferenced, and failing on them would teach
+ * whoever hits it to delete the check rather than to think about it.
+ *
+ * What these bins promise is enforced at runtime and asserted below instead:
+ * one call site, pinned to one origin, and an address that must be https before
+ * it is ever stored.
+ */
+
+async function checkDistributedBins(): Promise<void> {
+  for (const rel of DIST_BINS) {
+    let code: string
+    try {
+      code = await readFile(join(ROOT, rel), 'utf8')
+    } catch {
+      fail(`${rel} is missing. Run \`pnpm build:dist\` first.`)
+      continue
+    }
+
+    if (rel === HTTPS_ONLY.bin && !code.includes(HTTPS_ONLY.text)) {
+      fail(
+        `${rel} no longer refuses a plain-HTTP forge address. That check runs before ` +
+          `anything is stored, so losing it moves the failure to the first request.`,
+      )
+    }
+
+    if (!code.includes(ORIGIN_REFUSAL)) {
+      fail(
+        `${rel} no longer contains nodeHttp's origin refusal. A published command that ` +
+          `could be pointed at any host would be a convenient way to send a token elsewhere.`,
+      )
+    }
+
+    for (const [api, allowed] of Object.entries(DIST_NETWORK_BUDGET)) {
+      const found = code.split(api).length - 1
+      if (found !== allowed) {
+        fail(
+          `${rel} contains ${found} occurrence(s) of \`${api}\`, and ${allowed} is the budget. ` +
+            `Widening it is a deliberate enlargement of what this command can reach.`,
+        )
+      }
+    }
+  }
+}
+
 await checkSourceBoundary()
 await checkDocuments()
-await checkBundle()
+await checkBundle(DIST, relative(ROOT, DIST))
+await checkDistributedBins()
 
 if (failures.length > 0) {
   console.error(`\n✗ Network boundary: ${failures.length} problem(s)\n`)
@@ -258,5 +356,5 @@ if (failures.length > 0) {
 
 console.log(
   `✓ Network boundary intact: ${TRANSPORT_MODULES.length} transport modules, no markup built from strings, ` +
-    `two documents, policies as declared.`,
+    `two documents, policies as declared, and ${DIST_BINS.length} published bins that reach one host.`,
 )

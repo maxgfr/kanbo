@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "description": "Node implementations of the @kanbo/core ports: filesystem, node:crypto.",
   "exports": {

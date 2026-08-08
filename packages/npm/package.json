@@ -1,0 +1,42 @@
+{
+  "name": "kanbo",
+  "version": "0.2.0",
+  "description": "Local-first project management. Kanban, sprints and roadmap from your terminal, with a git repo as the only backend.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "kanbo": "./dist/kanbo.js",
+    "kanbo-mcp": "./dist/kanbo-mcp.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxgfr/kanbo.git",
+    "directory": "packages/npm"
+  },
+  "homepage": "https://github.com/maxgfr/kanbo#readme",
+  "bugs": {
+    "url": "https://github.com/maxgfr/kanbo/issues"
+  },
+  "keywords": [
+    "kanban",
+    "project-management",
+    "cli",
+    "mcp",
+    "model-context-protocol",
+    "local-first",
+    "sprints",
+    "roadmap",
+    "issue-tracker",
+    "git"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

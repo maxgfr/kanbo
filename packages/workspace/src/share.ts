@@ -8,7 +8,7 @@ import {
   parseFragment,
   shareFileName,
 } from '@kanbo/core'
-import { decryptShare, encryptShare } from '@kanbo/crypto'
+import { decryptShare, encryptShare } from '@kanbo/crypto/share'
 
 import { KanboError } from './resolve.ts'
 import type { Workspace } from './session.ts'

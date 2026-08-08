@@ -1,5 +1,5 @@
 import type { Ciphertext, Crypto as CryptoPort, Storage } from '@kanbo/core'
-import { readToken as unframeToken, storeToken as frameToken } from '@kanbo/crypto'
+import { readToken as unframeToken, storeToken as frameToken } from '@kanbo/crypto/token'
 
 /**
  * Encryption at rest, with a key JavaScript cannot read.

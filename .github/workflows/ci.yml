@@ -26,3 +26,26 @@ jobs:
         env:
           # The smoke checks drive the Chrome preinstalled on the runner.
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+  # The package claims engines >= 22. esbuild transpiles syntax but cannot see a
+  # dependency calling an API that does not exist on 22, so the floor is only
+  # true if something runs there. This is the only job that makes it so.
+  #
+  # Note the asymmetry: developing this repository needs Node >= 22.18, because
+  # every script is a .ts file run by type stripping. The published bundle needs
+  # no stripping at all, which is why >= 22 is honest for the package.
+  dist:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:dist
+      - run: pnpm check:dist

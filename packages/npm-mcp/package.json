@@ -1,0 +1,36 @@
+{
+  "name": "kanbo-mcp",
+  "version": "0.2.0",
+  "description": "The Kanbo MCP server. The same program as the kanbo-mcp bin in the kanbo package, under the name npx resolves.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "kanbo-mcp": "./dist/kanbo-mcp.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxgfr/kanbo.git",
+    "directory": "packages/npm-mcp"
+  },
+  "homepage": "https://github.com/maxgfr/kanbo#readme",
+  "bugs": {
+    "url": "https://github.com/maxgfr/kanbo/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kanban",
+    "project-management",
+    "local-first"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

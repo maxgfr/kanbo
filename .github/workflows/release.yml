@@ -1,0 +1,72 @@
+name: Release
+
+# A pushed tag proposes a release; the `npm` environment's reviewer approves it.
+# Publishing is the one thing in this repository that cannot be undone.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      # Two packages ship together and must never disagree about what version
+      # they are: they write to the same store and speak the same format.
+      - name: The tag must be the version, in both manifests
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for pkg in packages/npm packages/npm-mcp; do
+            found="$(node -p "require('./$pkg/package.json').version")"
+            test "$tag" = "$found" || { echo "$pkg is $found, tag says $tag"; exit 1; }
+          done
+
+      - name: The tag must be on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - run: pnpm install --frozen-lockfile
+
+      # The whole gate, not a subset. check:dist packs the tarball, installs it
+      # with npm outside the workspace, and drives every CLI assertion through
+      # it — so nothing is published that has not already been run as a package.
+      - run: pnpm verify
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+      # Derived rather than defaulted: a v1.0.0-rc.1 landing on `latest` is the
+      # classic release-day mistake.
+      - name: Choose the dist-tag
+        id: tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in
+            *-*) echo "dist=next" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "dist=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      # npm rather than pnpm: pnpm's publisher rewrites workspace protocols and
+      # packs differently, and --provenance is documented and tested against
+      # npm's. With Trusted Publishing configured on npmjs.com there is no token
+      # here at all; NODE_AUTH_TOKEN is the fallback for the first publish.
+      - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
+        working-directory: packages/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
+        working-directory: packages/npm-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
