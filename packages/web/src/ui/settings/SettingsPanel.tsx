@@ -16,7 +16,7 @@ import { useDialog } from '../design/useDialog.ts'
 import { setTheme, type Theme, currentTheme } from '../theme.ts'
 import { ColumnsSection } from './ColumnsSection.tsx'
 import { ProjectSection } from './ProjectSection.tsx'
-import { FieldsSection, LabelsSection, MembersSection } from './VocabularySections.tsx'
+import { FieldsSection, LabelsSection } from './VocabularySections.tsx'
 
 /**
  * The forge API address, kept as it was typed.
@@ -240,8 +240,6 @@ export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelPr
           <ColumnsSection />
 
           <LabelsSection />
-
-          <MembersSection />
 
           <FieldsSection />
 

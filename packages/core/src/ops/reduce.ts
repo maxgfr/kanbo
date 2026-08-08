@@ -231,17 +231,29 @@ function applyOne(project: Project, operation: Operation): Project {
         ),
       }
 
-    case 'view.upsert':
-      return { ...project, views: upsert(project.views, operation.view) }
-
-    case 'view.delete':
-      return { ...project, views: remove(project.views, operation.viewId) }
-
     case 'comment.upsert':
       return { ...project, comments: upsert(project.comments, operation.comment) }
 
     case 'comment.delete':
       return { ...project, comments: remove(project.comments, operation.commentId) }
+
+    /**
+     * An operation this build does not know is carried, not obeyed.
+     *
+     * The log is forever and the code is not. Two devices routinely run
+     * different builds — one has pulled an operation the other has never heard
+     * of, or, as here, a kind was retired and every existing board still has
+     * three `view.upsert` in its history. Falling off the end of the switch
+     * returned `undefined` and took the whole project with it, which is a
+     * corrupt board rather than an unread field.
+     *
+     * Ignoring it is the honest reading: this build cannot say what the
+     * operation meant, so it says nothing and leaves the operation in the log
+     * for a build that can. `schemaVersion` is what refuses outright when the
+     * shape has moved too far to be read at all.
+     */
+    default:
+      return project
   }
 }
 

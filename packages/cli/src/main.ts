@@ -27,6 +27,7 @@ import {
   importJson,
   itemsInStatus,
   keyBetween,
+  memberById,
   mergeLogs,
   newItem,
   operationBuilder,
@@ -39,6 +40,14 @@ import { nodeDeviceId, nodePorts } from '@kanbo/adapters-node'
 
 const ROOT = process.env['KANBO_HOME'] ?? join(homedir(), '.kanbo')
 const LOG_KEY = 'log'
+/**
+ * Who is at this terminal.
+ *
+ * Beside the log rather than in it, for the same reason the browser keeps it in
+ * localStorage: "I am Ada" is true of a machine, not of a project. Syncing it
+ * would tell every other device that they are Ada too.
+ */
+const ME_KEY = 'me'
 
 const [, , command = 'help', ...args] = process.argv
 
@@ -47,6 +56,11 @@ async function loadLog(storage: ReturnType<typeof nodePorts>['storage']) {
   if (!stored) return [] as readonly Operation[]
   const parsed: unknown = JSON.parse(new TextDecoder().decode(stored))
   return Array.isArray(parsed) ? (parsed as readonly Operation[]) : []
+}
+
+async function readMe(storage: ReturnType<typeof nodePorts>['storage']) {
+  const stored = await storage.get(ME_KEY)
+  return stored ? new TextDecoder().decode(stored) : null
 }
 
 async function saveLog(
@@ -66,6 +80,7 @@ const ports = nodePorts(ROOT)
 const device = await nodeDeviceId(ports.storage)
 const log = await loadLog(ports.storage)
 const project = reduceOperations(log)
+const meId = await readMe(ports.storage)
 
 async function commit(...bodies: readonly OperationBody[]) {
   const emit = operationBuilder(ports, { deviceId: device, authorId: null }, log)
@@ -173,12 +188,82 @@ switch (command) {
   case 'search': {
     const query = args.join(' ')
     // The identical query language the palette uses, unchanged.
-    const found = search(query, { project, now: Date.now(), meId: null })
+    const found = search(query, { project, now: Date.now(), meId })
     if (found.length === 0) console.log('Nothing matched.')
     for (const item of found) {
       const status = statusById(project, item.statusId)
       console.log(`${item.ref.padEnd(10)} ${(status?.name ?? '').padEnd(12)} ${item.title}`)
     }
+    break
+  }
+
+  case 'assign': {
+    // The board lets you invent a person straight from an item, which is the
+    // moment you want one; there is no user directory to pick from either way.
+    // Doing the same here keeps `me` from being half a feature.
+    const [ref, ...rest] = args
+    const who = rest.join(' ').trim()
+    if (!ref || who === '') fail('Usage: kanbo assign <ref> <name>   (or --nobody)')
+
+    const item = project.items.find(
+      (candidate) => candidate.ref.toUpperCase() === ref.toUpperCase(),
+    )
+    if (!item) fail(`No item called ${ref}.`)
+
+    if (who === '--nobody') {
+      await commit({ kind: 'item.set', itemId: item.id, patch: { assignees: [] } })
+      console.log(`${item.ref} is assigned to nobody.`)
+      break
+    }
+
+    const existing = project.members.find(
+      (member) => member.name.toLowerCase() === who.toLowerCase(),
+    )
+    const member = existing ?? { id: ports.random.id(), name: who, handle: null }
+    await commit(...(existing ? [] : [{ kind: 'member.upsert' as const, member }]), {
+      kind: 'item.set',
+      itemId: item.id,
+      patch: { assignees: [...new Set([...item.assignees, member.id])] },
+    })
+    console.log(`${item.ref} is assigned to ${member.name}.`)
+    break
+  }
+
+  case 'me': {
+    // `assignee:@me` is offered in the README as an example of the query
+    // language and could never match anything from here, because there was no
+    // way to say who "me" was. The palette had the same gap.
+    const wanted = args.join(' ').trim()
+    if (wanted === '') {
+      const me = memberById(project, meId)
+      console.log(
+        me
+          ? `You are ${me.name}${me.handle ? ` (${me.handle})` : ''}.`
+          : 'Nobody claimed on this machine.',
+      )
+      break
+    }
+
+    if (wanted === '--none') {
+      await ports.storage.delete(ME_KEY)
+      console.log('Nobody claimed on this machine.')
+      break
+    }
+
+    const found = project.members.find(
+      (member) =>
+        member.name.toLowerCase() === wanted.toLowerCase() ||
+        member.handle?.toLowerCase() === wanted.toLowerCase().replace(/^@/, ''),
+    )
+    if (!found) {
+      fail(
+        project.members.length === 0
+          ? 'This project has nobody on it yet. Assign someone to an item first.'
+          : `No such person. This project has: ${project.members.map((member) => member.name).join(', ')}`,
+      )
+    }
+    await ports.storage.set(ME_KEY, new TextEncoder().encode(found.id))
+    console.log(`You are ${found.name}.`)
     break
   }
 
@@ -216,6 +301,8 @@ switch (command) {
                         add a column (todo, in-progress or done)
   add <title>           add an item
   move <ref> <status>   move an item
+  assign <ref> <name>   assign an item, inventing the person if new
+  me [name|--none]      who you are here, for assignee:@me
   search <query>        e.g. "is:blocked", "type:bug points:>3"
   export [--csv]        write the operation log, or a flat CSV
   import                merge an export from stdin

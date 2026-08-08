@@ -3,6 +3,7 @@ import {
   type ShareLink,
   ShareError,
   type SharePayload,
+  blockedBy,
   byOrder,
   decodeEnvelope,
   itemsInStatus,
@@ -11,7 +12,7 @@ import {
 import { decryptShare } from '@kanbo/adapters-web'
 import { useEffect, useState } from 'react'
 
-import { blockedBy, isOverdue } from '../board/Card.tsx'
+import { isOverdue } from '../board/Card.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'

@@ -4,8 +4,8 @@ import {
   type ItemDelivery,
   type Project,
   ageInProgress,
+  blockedBy,
   firstLine,
-  itemById,
   subtreeProgress,
 } from '@kanbo/core'
 import { useSortable } from '@dnd-kit/sortable'
@@ -33,14 +33,6 @@ const TYPE_ICON = {
 const PRIORITY_SIGNAL: Partial<Record<Item['priority'], string>> = {
   p0: 'var(--signal-cancelled)',
   p1: 'var(--signal-delayed)',
-}
-
-/** An item is blocked when something it depends on has not finished. */
-export function blockedBy(project: Project, item: Item): readonly Item[] {
-  return item.links
-    .filter((link) => link.type === 'blocked-by')
-    .map((link) => itemById(project, link.itemId))
-    .filter((blocker): blocker is Item => blocker !== null && blocker.completedAt === null)
 }
 
 export function isOverdue(item: Item, today: string): boolean {

@@ -57,6 +57,37 @@ try {
   const open = await kanbo(home, 'search', 'is:open')
   check('the query language works unchanged outside the browser', open.includes('APL-1'), open)
 
+  // `assignee:@me` is offered in the README as an example of the query
+  // language. It resolved to nothing here for the same reason it did in the
+  // browser: nothing could say who "me" was. "The same language the CLI runs"
+  // has to include the qualifiers, not just the ones that need no identity.
+  const nobody = await kanbo(home, 'me')
+  check('nobody is claimed until somebody says so', nobody.includes('Nobody claimed'), nobody)
+
+  const assigned = await kanbo(home, 'assign', 'APL-1', 'Ada Lovelace')
+  check(
+    'the terminal can assign, inventing the person',
+    assigned.includes('Ada Lovelace'),
+    assigned,
+  )
+
+  const claimed = await kanbo(home, 'me', 'Ada Lovelace')
+  check('and can say which of them is you', claimed.includes('You are Ada Lovelace'), claimed)
+
+  const mine = await kanbo(home, 'search', 'assignee:@me')
+  check(
+    'assignee:@me then matches the same work it does on the board',
+    mine.includes('APL-1'),
+    mine,
+  )
+
+  const notMine = await kanbo(home, 'search', 'assignee:@me is:closed')
+  check(
+    'and narrows with the rest of the language rather than standing apart',
+    notMine.includes('Nothing matched'),
+    notMine,
+  )
+
   const bugs = await kanbo(home, 'search', 'type:bug')
   check('a query that should match nothing matches nothing', bugs.includes('Nothing matched.'))
 

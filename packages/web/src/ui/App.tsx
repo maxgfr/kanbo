@@ -1,5 +1,5 @@
 import { type Project, byOrder, newItem } from '@kanbo/core'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 
 import { takeHandover } from '../boot/handover.ts'
 import { readSyncSettings } from '../boot/syncSettings.ts'
@@ -7,38 +7,47 @@ import { type DeliveryCache, deliveriesFor, refreshDelivery } from '../state/del
 import { createPorts, seedOperations } from '../state/store.ts'
 import { type SyncState, runSync, saveToken } from '../state/sync.ts'
 import { useDispatch, usePersistFailure, usePorts, useProject } from '../state/useStore.ts'
-import { BacklogView } from './backlog/BacklogView.tsx'
-import { BoardView } from './board/BoardView.tsx'
 import { Button } from './design/Button.tsx'
 import { Icon, type IconName } from './design/Icon.tsx'
 import { ItemPanel } from './item/ItemPanel.tsx'
 import { MetricsView } from './metrics/MetricsView.tsx'
 import { type Command, CommandPalette } from './palette/CommandPalette.tsx'
+import { PeopleView } from './people/PeopleView.tsx'
 import { ReleasesView } from './releases/ReleasesView.tsx'
 import { RoadmapView } from './roadmap/RoadmapView.tsx'
 import { SettingsPanel } from './settings/SettingsPanel.tsx'
+import { Shortcuts } from './design/Shortcuts.tsx'
 import { ShareDialog } from './share/ShareDialog.tsx'
 import { SprintView } from './sprint/SprintView.tsx'
-import { TableView } from './table/TableView.tsx'
 import { applyTheme, watchSystemTheme } from './theme.ts'
+import { WorkView } from './work/WorkView.tsx'
 
-type ViewKey = 'board' | 'table' | 'backlog' | 'sprint' | 'roadmap' | 'releases' | 'metrics'
+type ViewKey = 'work' | 'sprint' | 'roadmap' | 'releases' | 'people' | 'metrics'
 
-const NAV: readonly { key: ViewKey; label: string; icon: IconName }[] = [
-  { key: 'board', label: 'Board', icon: 'board' },
-  { key: 'table', label: 'Table', icon: 'table' },
-  { key: 'backlog', label: 'Backlog', icon: 'backlog' },
-  { key: 'sprint', label: 'Sprints', icon: 'calendar' },
-  { key: 'roadmap', label: 'Roadmap', icon: 'roadmap' },
-  { key: 'releases', label: 'Releases', icon: 'tag' },
-  { key: 'metrics', label: 'Metrics', icon: 'metrics' },
+/**
+ * Six destinations, not eight.
+ *
+ * Board, Table and Backlog were three of them and showed the same items: they
+ * differed only in a layout and a grouping, which are now controls inside Work
+ * rather than a choice of where to be.
+ *
+ * The key is the shortcut. `g` then the letter goes there, which is the pattern
+ * every forge already trained this audience on.
+ */
+const NAV: readonly { key: ViewKey; label: string; icon: IconName; keys: string }[] = [
+  { key: 'work', label: 'Work', icon: 'board', keys: 'w' },
+  { key: 'sprint', label: 'Sprints', icon: 'calendar', keys: 's' },
+  { key: 'roadmap', label: 'Roadmap', icon: 'roadmap', keys: 'r' },
+  { key: 'releases', label: 'Releases', icon: 'tag', keys: 'l' },
+  { key: 'people', label: 'People', icon: 'person', keys: 'p' },
+  { key: 'metrics', label: 'Metrics', icon: 'metrics', keys: 'm' },
 ]
 
 export function App() {
   const store = usePorts()
   const project = useProject()
   const dispatch = useDispatch()
-  const [view, setView] = useState<ViewKey>('board')
+  const [view, setView] = useState<ViewKey>('work')
   const [openItem, setOpenItem] = useState<string | null>(null)
   // Switching between local and repository mode loads the other document, so
   // the panel the switch was made in is destroyed with everything else. The
@@ -47,7 +56,11 @@ export function App() {
   const [switched, setSwitched] = useState(settingsOpen)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [delivery, setDelivery] = useState<DeliveryCache | null>(null)
+  // Claiming a seat changes what `@me` resolves to, and both the palette and
+  // the filter read it while rendering rather than holding a copy.
+  const [, bumpMe] = useReducer((count: number) => count + 1, 0)
   // A write that did not land is the one failure the board cannot show by
   // itself: the screen is updated before the write, so it looks saved.
   const unsaved = usePersistFailure()
@@ -84,28 +97,102 @@ export function App() {
 
   useEffect(() => refreshPulls(), [refreshPulls])
 
-  // One shortcut, on the key everyone already presses for this.
+  // Stable enough to be a dependency: the shortcut handler holds it, and a new
+  // identity every render would re-register the listener on every keystroke.
+  const addItem = useCallback(
+    async (statusId?: string) => {
+      const ports = createPorts()
+      const first = project.statuses.toSorted(byOrder)[0]
+      const item = newItem(project, ports, {
+        title: 'Untitled',
+        ...((statusId ?? first?.id) ? { statusId: statusId ?? first!.id } : {}),
+      })
+      await dispatch({ kind: 'item.create', item })
+      setOpenItem(item.id)
+    },
+    [project, dispatch],
+  )
+
+  /**
+   * The keyboard, kept to its word.
+   *
+   * ⌘K was the only shortcut in the application, and the palette advertised `n`
+   * for "New item" against nothing at all — a claim the software could not
+   * keep, which is the one thing PRODUCT.md forbids by name. The bare keys are
+   * the ones a forge has already trained this audience on: `g` then a letter to
+   * go somewhere, `/` to filter, `?` to be told all of this.
+   *
+   * Nothing fires while a field has focus, or the letter would land in the text
+   * instead of the board. A card's own `o` and `space` are handled on the card,
+   * where they belong.
+   */
   useEffect(() => {
+    let goingTo = false
+    let clear: number | undefined
+
+    function typing(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false
+      return (
+        target.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+        target.closest('[role="dialog"]') !== null
+      )
+    }
+
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setPaletteOpen(true)
+        return
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
+
+      if (goingTo) {
+        window.clearTimeout(clear)
+        goingTo = false
+        const destination = NAV.find((entry) => entry.keys === event.key.toLowerCase())
+        if (destination) {
+          event.preventDefault()
+          setView(destination.key)
+        }
+        return
+      }
+
+      switch (event.key) {
+        case 'g':
+          // A prefix rather than a chord: `g` alone means nothing yet, and is
+          // forgotten a second later so a stray press cannot swallow the next
+          // real keystroke.
+          goingTo = true
+          clear = window.setTimeout(() => {
+            goingTo = false
+          }, 1200)
+          return
+        case 'n':
+          event.preventDefault()
+          void addItem()
+          return
+        case '/':
+          event.preventDefault()
+          setView('work')
+          // After the view has painted, or there is no field to focus yet.
+          requestAnimationFrame(() => document.getElementById('kb-filter')?.focus())
+          return
+        case '?':
+          event.preventDefault()
+          setShortcutsOpen(true)
+          return
+        default:
+          return
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
 
-  async function addItem(statusId?: string) {
-    const ports = createPorts()
-    const first = project.statuses.toSorted(byOrder)[0]
-    const item = newItem(project, ports, {
-      title: 'Untitled',
-      ...((statusId ?? first?.id) ? { statusId: statusId ?? first!.id } : {}),
-    })
-    await dispatch({ kind: 'item.create', item })
-    setOpenItem(item.id)
-  }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.clearTimeout(clear)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [addItem])
 
   if (project.statuses.length === 0) {
     return <FirstRun />
@@ -175,7 +262,7 @@ export function App() {
             >
               <Icon name={entry.icon} size={15} />
               {entry.label}
-              {entry.key === 'board' && <span className="kb-nav__count">{active.length}</span>}
+              {entry.key === 'work' && <span className="kb-nav__count">{active.length}</span>}
             </button>
           ))}
         </div>
@@ -190,10 +277,10 @@ export function App() {
                 key={status.id}
                 type="button"
                 className="kb-nav__item"
-                // Named for what it does, because "Backlog" is both a view in
-                // the list above and a column in this one, and two controls
-                // with the same accessible name that go to different places is
-                // a maze for anyone reading the page rather than looking at it.
+                // Named for what it does. A column and a destination can share
+                // a word, and two controls with the same accessible name going
+                // to different places is a maze for anyone reading the page
+                // rather than looking at it.
                 aria-label={`Go to the ${status.name} column`}
                 // Scrolls to the column rather than filtering to it. A board
                 // with a dozen columns scrolls sideways, and this list is the
@@ -201,7 +288,7 @@ export function App() {
                 // filter and with `status:` in the palette, which already
                 // answers that question and says so in the query.
                 onClick={() => {
-                  setView('board')
+                  setView('work')
                   requestAnimationFrame(() =>
                     document.getElementById(`kb-column-${status.id}`)?.scrollIntoView({
                       behavior: 'smooth',
@@ -234,23 +321,21 @@ export function App() {
       </nav>
 
       <main className="kb-main">
-        {view === 'board' ? (
-          <BoardView
+        {view === 'work' ? (
+          <WorkView
             project={project}
             deliveries={deliveriesFor(store, delivery)}
             onOpen={setOpenItem}
             onAdd={(id) => void addItem(id)}
           />
-        ) : view === 'table' ? (
-          <TableView project={project} onOpen={setOpenItem} />
-        ) : view === 'backlog' ? (
-          <BacklogView project={project} onOpen={setOpenItem} />
         ) : view === 'sprint' ? (
           <SprintView project={project} onOpen={setOpenItem} />
         ) : view === 'roadmap' ? (
           <RoadmapView project={project} onOpen={setOpenItem} />
         ) : view === 'releases' ? (
           <ReleasesView project={project} onOpen={setOpenItem} />
+        ) : view === 'people' ? (
+          <PeopleView project={project} onOpen={setOpenItem} onMeChange={bumpMe} />
         ) : (
           <MetricsView project={project} />
         )}
@@ -266,6 +351,7 @@ export function App() {
       )}
       {settingsOpen && <SettingsPanel announceMode={switched} onClose={closeSettings} />}
       {shareOpen && <ShareDialog project={project} onClose={() => setShareOpen(false)} />}
+      {shortcutsOpen && <Shortcuts onClose={() => setShortcutsOpen(false)} />}
       {paletteOpen && (
         <CommandPalette
           project={project}
@@ -276,8 +362,16 @@ export function App() {
                 id: `view-${entry.key}`,
                 label: `Go to ${entry.label}`,
                 icon: entry.icon,
+                hint: `g ${entry.keys}`,
                 run: () => setView(entry.key),
               })),
+              {
+                id: 'shortcuts',
+                label: 'Keyboard shortcuts',
+                icon: 'settings',
+                hint: '?',
+                run: () => setShortcutsOpen(true),
+              },
               {
                 id: 'settings',
                 label: 'Settings',

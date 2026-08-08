@@ -1,6 +1,7 @@
 import { QUALIFIERS, type Project, search, statusById } from '@kanbo/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { readMeId } from '../../state/identity.ts'
 import { Icon, type IconName } from '../design/Icon.tsx'
 import { StatusChip, signalForCategory } from '../design/StatusChip.tsx'
 import { useDialog } from '../design/useDialog.ts'
@@ -48,7 +49,11 @@ export function CommandPalette({ project, commands, onOpenItem, onClose }: Comma
   }, [])
 
   const items = useMemo(
-    () => (query.trim() === '' ? [] : search(query, { project, now: Date.now(), meId: null })),
+    () =>
+      // `meId` rather than null: `assignee:@me` is advertised in the hints
+      // below and could never match anything until People let someone say
+      // which person they are.
+      query.trim() === '' ? [] : search(query, { project, now: Date.now(), meId: readMeId() }),
     [query, project],
   )
 

@@ -36,7 +36,6 @@ import type {
   Member,
   Milestone,
   Status,
-  View,
 } from '../model/types.ts'
 
 /** Fields of an item a user can set directly. Derived timestamps are excluded. */
@@ -98,8 +97,6 @@ export type OperationBody =
   | { readonly kind: 'label.delete'; readonly labelId: string }
   | { readonly kind: 'member.upsert'; readonly member: Member }
   | { readonly kind: 'member.delete'; readonly memberId: string }
-  | { readonly kind: 'view.upsert'; readonly view: View }
-  | { readonly kind: 'view.delete'; readonly viewId: string }
   | { readonly kind: 'comment.upsert'; readonly comment: Comment }
   | { readonly kind: 'comment.delete'; readonly commentId: string }
 

@@ -1,12 +1,12 @@
 /**
- * Turning a view definition into the rows it shows.
+ * Filtering, sorting and grouping — the three things every layout does.
  *
- * One implementation serves every view: a board is these results grouped by
- * status, a backlog is them sorted by order, a calendar is them bucketed by
- * date. Keeping filtering and sorting in one place is what stops the board and
- * the table from disagreeing about what "my open bugs" means.
+ * One implementation serves all of them: a board is these results grouped by
+ * status, a list grouped by sprint is the same call with a different key, and
+ * swimlanes are that grouping drawn sideways. Keeping it in one place is what
+ * stops two layouts from disagreeing about what "my open bugs" means.
  */
-import type { Filter, Item, Project, Sort, View } from '../model/types.ts'
+import type { Filter, Item, Project, Sort } from '../model/types.ts'
 import { byOrder } from '../order/fractional.ts'
 
 /**
@@ -240,12 +240,4 @@ function labelFor(project: Project, groupBy: string, key: string | null): string
     default:
       return key
   }
-}
-
-/** Run a whole view: filter, sort, then group. */
-export function runView(project: Project, view: View): readonly Group[] {
-  const visible = project.items.filter(
-    (item) => !item.archived && matchesFilters(item, view.filters),
-  )
-  return groupItems(project, sortItems(visible, view.sorts), view.groupBy)
 }

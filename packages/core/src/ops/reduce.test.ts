@@ -4,7 +4,8 @@ import { itemById } from '../model/project.ts'
 import { keyBetween } from '../order/fractional.ts'
 import { mergeLogs } from './log.ts'
 import { reduceOperations } from './reduce.ts'
-import { anItem, op, statusOperations } from './testing.ts'
+import { STATUSES, anItem, op, statusOperations } from './testing.ts'
+import type { Operation } from './types.ts'
 
 const seed = statusOperations()
 const create = op('device-a', 10, { kind: 'item.create', item: anItem('1') })
@@ -305,5 +306,54 @@ describe('two devices, offline and then reconnected', () => {
     expect(item?.priority).toBe('p0')
     expect(item?.statusId).toBe('doing')
     expect(aliceSees.items).toHaveLength(3)
+  })
+})
+
+/**
+ * The log is forever and the code is not.
+ *
+ * Two devices routinely run different builds — one has pulled an operation the
+ * other has never heard of. And a kind can be retired: `view.upsert` was, and
+ * every board created before that still carries three of them. Falling off the
+ * end of the switch returned undefined and took the whole project with it,
+ * which is a corrupt board rather than an unread field.
+ */
+describe('an operation this build does not know', () => {
+  const unknown = {
+    id: 'x1',
+    deviceId: 'other-build',
+    lamport: 500,
+    at: 1000,
+    authorId: null,
+    kind: 'view.upsert',
+    view: { id: 'board', name: 'Board', kind: 'board', groupBy: 'status' },
+  } as unknown as Operation
+
+  it('is carried rather than obeyed', () => {
+    const log = mergeLogs(statusOperations(), [
+      op('device-a', 10, { kind: 'item.create', item: anItem('1') }),
+      unknown,
+    ])
+    const project = reduceOperations(log)
+
+    expect(project.items).toHaveLength(1)
+    expect(project.statuses).toHaveLength(STATUSES.length)
+  })
+
+  it('does not take the rest of the fold with it, whatever the order', () => {
+    // Sorted by Lamport, so the unknown operation lands last here and first in
+    // a log pulled from a device that had been running longer.
+    const early = { ...unknown, lamport: 0, id: 'x0' } as Operation
+    const project = reduceOperations(
+      mergeLogs([early], statusOperations(), [
+        op('device-a', 10, { kind: 'item.create', item: anItem('1') }),
+      ]),
+    )
+    expect(project.items).toHaveLength(1)
+  })
+
+  it('stays in the log, for a build that can read it', () => {
+    const log = mergeLogs(statusOperations(), [unknown])
+    expect(log.some((entry) => entry.id === 'x1')).toBe(true)
   })
 })

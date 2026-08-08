@@ -11,7 +11,7 @@
  * results visibly, not empty them mysteriously.
  */
 import type { Item, Project } from '../model/types.ts'
-import { itemById } from '../model/project.ts'
+import { isBlocked } from '../model/project.ts'
 import { isoDay } from '../metrics/flow.ts'
 
 export type Token =
@@ -65,13 +65,6 @@ const KNOWN = new Set([
   'due',
   'ref',
 ])
-
-function blocked(project: Project, item: Item): boolean {
-  return item.links.some(
-    (link) =>
-      link.type === 'blocked-by' && (itemById(project, link.itemId)?.completedAt ?? null) === null,
-  )
-}
 
 function matchesQualifier(
   item: Item,
@@ -154,7 +147,7 @@ function matchesQualifier(
     case 'is':
       switch (value) {
         case 'blocked':
-          return blocked(project, item)
+          return isBlocked(project, item)
         case 'open':
           return item.completedAt === null
         case 'closed':

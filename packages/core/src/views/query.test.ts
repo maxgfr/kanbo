@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { mergeLogs } from '../ops/log.ts'
 import { reduceOperations } from '../ops/reduce.ts'
 import { anItem, op, statusOperations } from '../ops/testing.ts'
-import type { Project, View } from '../model/types.ts'
+import type { Project } from '../model/types.ts'
 import { keysBetween } from '../order/fractional.ts'
-import { groupItems, matchesFilter, runView, sortItems, valueOf } from './query.ts'
+import { groupItems, matchesFilter, matchesFilters, sortItems, valueOf } from './query.ts'
 
 const orders = keysBetween(null, null, 4)
 
@@ -142,28 +142,32 @@ describe('groupItems', () => {
   })
 })
 
-describe('runView', () => {
-  const view: View = {
-    id: 'board',
-    name: 'Board',
-    kind: 'board',
-    filters: [],
-    sorts: [],
-    groupBy: 'status',
-    visibleFields: [],
-    order: 'a0',
-  }
+/**
+ * Filter, then group — the order every layout composes them in.
+ *
+ * Grouping first and filtering the buckets afterwards would give the same rows
+ * and the wrong columns: a status nothing matched would vanish, and an empty
+ * column is a place to drop a card rather than a column that does not exist.
+ */
+describe('filtering then grouping', () => {
+  const shown = (filters: Parameters<typeof matchesFilters>[1]) =>
+    groupItems(
+      project,
+      project.items.filter((each) => !each.archived && matchesFilters(each, filters)),
+      'status',
+    )
 
   it('hides archived items', () => {
-    const shown = runView(project, view).flatMap((group) => group.items.map((i) => i.id))
-    expect(shown).not.toContain('4')
+    expect(shown([]).flatMap((group) => group.items.map((each) => each.id))).not.toContain('4')
   })
 
-  it('applies filters before grouping', () => {
-    const filtered = runView(project, {
-      ...view,
-      filters: [{ key: 'type', operator: 'is', value: 'bug' }],
-    })
-    expect(filtered.flatMap((group) => group.items.map((i) => i.id))).toEqual(['1'])
+  it('narrows the rows', () => {
+    const bugs = shown([{ key: 'type', operator: 'is', value: 'bug' }])
+    expect(bugs.flatMap((group) => group.items.map((each) => each.id))).toEqual(['1'])
+  })
+
+  it('keeps every column, including the ones the filter emptied', () => {
+    const bugs = shown([{ key: 'type', operator: 'is', value: 'bug' }])
+    expect(bugs).toHaveLength(project.statuses.length)
   })
 })

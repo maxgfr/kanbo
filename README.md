@@ -43,9 +43,15 @@ Three things keep that honest, and CI fails if any of them slips:
 
 **Roadmap** with dependency arrows drawn in the grammar of a technical drawing, milestones, and blocking links that refuse to form a cycle. An item with no dates gets no bar: a roadmap that invents a schedule is the most confident kind of wrong.
 
-**Backlog, table and releases** — ordered planning, bulk editing, and release notes generated from what actually shipped.
+**One place the work is, and controls for how to look at it.** Columns or a list; grouped by status, sprint, person or priority; narrowed by a filter written in the same query language as everything else. Board, table and backlog were three destinations over the same items, each freezing one combination of those; they are one now. Grouping by sprint gives lanes — including a lane for the work in no sprint at all, which is the question a filter cannot ask.
 
-**⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the CLI runs.
+**People** — who is carrying what, read off the board rather than recorded anywhere: open work, points, what is blocked, and the oldest thing still in flight. It is also where you say which of them is you, which is what makes `assignee:@me` mean something. That answer is remembered by the browser and never written to the project: it is true of a machine, not of a board.
+
+**Releases** — release notes generated from what actually shipped.
+
+**⌘K** for search and commands, in a query language you already know: `is:blocked`, `assignee:@me`, `type:bug points:>3`, `sprint:current`. The same language the filter runs, and the same language the CLI runs — including `@me`, which needs a terminal to know who you are and now has `kanbo me` to tell it.
+
+**The keyboard means it.** `/` filters, `n` opens an item, `g` then a letter goes somewhere, `?` lists all of it — and everything `?` lists is bound, which is the point of having the list.
 
 **Pull requests on the ticket.** A pull request is matched to a card by the item's reference in a branch, title or description, by a closing keyword (`closes #12`), or by a bare issue mention — strongest signal wins, and a pull request that mentions nothing recognisable is left unlinked rather than guessed at. The card shows whether work is merged, open, draft, and what CI says; unknown check status is drawn as unknown, never as passing.
 
@@ -58,7 +64,9 @@ Three things keep that honest, and CI fails if any of them slips:
 ```sh
 node packages/cli/src/main.ts init "Apollo" APL
 node packages/cli/src/main.ts add "Ship the departure board"
-node packages/cli/src/main.ts search is:blocked
+node packages/cli/src/main.ts assign APL-1 "Ada Lovelace"
+node packages/cli/src/main.ts me "Ada Lovelace"
+node packages/cli/src/main.ts search assignee:@me
 node packages/cli/src/main.ts export > backup.json
 ```
 

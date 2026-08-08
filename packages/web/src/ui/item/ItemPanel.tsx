@@ -4,6 +4,7 @@ import {
   type Priority,
   type Project,
   byOrder,
+  blockedBy,
   itemById,
   statusById,
   wouldCycle,
@@ -12,7 +13,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createPorts } from '../../state/store.ts'
 import { useDispatch } from '../../state/useStore.ts'
-import { blockedBy } from '../board/Card.tsx'
 import { Button } from '../design/Button.tsx'
 import { Icon } from '../design/Icon.tsx'
 import { Markdown } from '../design/Markdown.tsx'

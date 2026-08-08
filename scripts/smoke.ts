@@ -212,16 +212,51 @@ async function run(browser: Browser): Promise<void> {
       (await strict.locator('.kb-card').count()) >= 1,
   )
 
-  // ------------------------------------------------------------ other views
-  await strict.getByRole('button', { name: 'Table' }).click()
-  await strict.locator('.kb-table').waitFor({ timeout: 5000 })
-  check('the table view renders', (await strict.locator('.kb-table tbody tr').count()) >= 1)
-  await shoot(strict, 'table')
+  // ---------------------------------------------------- layouts and grouping
+  // Board, Table and Backlog used to be three destinations over the same items.
+  // They are one now, with the layout and the grouping as controls — so what is
+  // checked here is that changing either really changes what is drawn.
+  await strict.getByRole('button', { name: 'List' }).click()
+  await strict.locator('.kb-list__row').first().waitFor({ timeout: 5000 })
+  check(
+    'the list layout renders the same work as rows',
+    (await strict.locator('.kb-list__row').count()) >= 1,
+  )
+  await shoot(strict, 'list')
 
-  await strict.getByRole('button', { name: 'Backlog', exact: true }).click()
-  await strict.locator('.kb-card').first().waitFor({ timeout: 5000 })
-  check('the backlog lists the item', (await strict.locator('.kb-card').count()) >= 1)
-  await shoot(strict, 'backlog')
+  await strict.getByLabel('Group by').selectOption('status')
+  await strict.waitForTimeout(200)
+  const statusGroups = await strict.locator('.kb-list__group').count()
+  check(
+    'grouping a list by status gives one section per column',
+    statusGroups === (await strict.locator('section.kb-column').count()) || statusGroups >= 4,
+    `${statusGroups} groups`,
+  )
+
+  await strict.getByLabel('Group by').selectOption('priority')
+  await strict.waitForTimeout(200)
+  check(
+    'grouping by something else regroups the same rows',
+    (await strict.locator('.kb-list__group').count()) === 5,
+  )
+
+  // The filter is the query language, staying put rather than navigating.
+  await strict.getByLabel('Filter the work').fill('is:open')
+  await strict.waitForTimeout(250)
+  check(
+    'the filter narrows the list with the query language',
+    (await strict.locator('.kb-list__row').count()) >= 1,
+  )
+  await strict.getByLabel('Filter the work').fill('type:bug')
+  await strict.waitForTimeout(250)
+  check(
+    'and a query that matches nothing empties it rather than ignoring it',
+    (await strict.locator('.kb-list__row').count()) === 0,
+  )
+  await strict.getByLabel('Filter the work').fill('')
+  await strict.getByLabel('Group by').selectOption('status')
+  await strict.getByRole('button', { name: 'Columns' }).click()
+  await strict.locator('section.kb-column').first().waitFor({ timeout: 5000 })
 
   // Sprints: create one, then confirm the burndown is drawn from the board's
   // own history rather than anything typed in.
@@ -256,8 +291,8 @@ async function run(browser: Browser): Promise<void> {
   await shoot(strict, 'sprint')
 
   // The roadmap deliberately shows nothing without dates; give the item one.
-  await strict.getByRole('button', { name: 'Backlog', exact: true }).click()
-  await strict.locator('.kb-button--quiet').filter({ hasText: 'APL-' }).first().click()
+  await strict.getByRole('button', { name: 'Work' }).click()
+  await strict.locator('.kb-card').filter({ hasText: 'APL-' }).first().click()
   await strict.locator('#kb-due').fill('2026-09-15')
   await strict.getByRole('button', { name: 'Close', exact: true }).click()
 
@@ -299,7 +334,7 @@ async function run(browser: Browser): Promise<void> {
   // -------------------------------------------------------------- palette
   // The palette runs the same query language the CLI runs; a syntax that only
   // works in one place is a syntax nobody remembers.
-  await strict.locator('.kb-nav__item', { hasText: 'Board' }).first().click()
+  await strict.locator('.kb-nav__item', { hasText: 'Work' }).first().click()
   await strict.keyboard.press('ControlOrMeta+k')
   await strict.getByRole('dialog', { name: 'Command palette' }).waitFor({ timeout: 5000 })
   await strict.getByLabel('Search or run a command').fill('is:open')
@@ -352,7 +387,7 @@ async function run(browser: Browser): Promise<void> {
 
   // -------------------------------------------------------------- history
   // The log was always the history; this checks it is now readable.
-  await strict.locator('.kb-nav__item', { hasText: 'Board' }).first().click()
+  await strict.locator('.kb-nav__item', { hasText: 'Work' }).first().click()
   // One click, the same gesture every other view uses. This is the regression
   // test: the board used to be the only place that demanded a double click.
   await strict.locator('.kb-card').first().click()
@@ -436,7 +471,7 @@ async function run(browser: Browser): Promise<void> {
     (await strict.getByLabel('What to include').inputValue()).startsWith('release:'),
   )
 
-  await strict.getByRole('button', { name: 'Board' }).click()
+  await strict.getByRole('button', { name: 'Work' }).click()
 
   // -------------------------------------------------------- sprints on board
   const sprintFilter = strict.getByLabel('Filter by sprint')
@@ -614,9 +649,96 @@ async function run(browser: Browser): Promise<void> {
 
   await connected.close()
 
+  await peopleAndShortcuts(browser)
   await modeSwitch(browser)
   await damagedShare(browser)
   await syncScenario(browser)
+}
+
+/**
+ * The team, who you are, and the keys.
+ *
+ * `assignee:@me` is offered in the README as an example of the query language
+ * and matched nothing at all until there was a screen on which to claim a seat.
+ * The palette advertised `n` against no handler. Both are claims the software
+ * makes about itself, so both are checked here rather than trusted.
+ */
+async function peopleAndShortcuts(browser: Browser): Promise<void> {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  watchConsole(page, 'people')
+
+  await page.goto(BASE, { waitUntil: 'networkidle' })
+  await page.locator('#kb-project-name').fill('Gemini')
+  await page.locator('#kb-project-key').fill('GEM')
+  await page.getByRole('button', { name: 'Create the board' }).click()
+  await page.getByRole('button', { name: 'New item' }).waitFor({ timeout: 5000 })
+
+  // `n` is what the palette has always promised and never bound.
+  await page.locator('body').click()
+  await page.keyboard.press('n')
+  await page.locator('#kb-title').waitFor({ timeout: 5000 })
+  check('n opens a new item, as the palette has always said it would', true)
+  await page.locator('#kb-title').fill('Ship the departure board')
+
+  // Invent a person from the item, which is the moment you want one.
+  await page.getByRole('button', { name: 'New assignee' }).click()
+  await page.getByLabel('New assignee').fill('Ada Lovelace')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+
+  // g then p: the pattern every forge already trained this audience on.
+  await page.keyboard.press('g')
+  await page.keyboard.press('p')
+  await page.getByRole('button', { name: 'This is me' }).first().waitFor({ timeout: 5000 })
+  check('g then p goes to People', true)
+  await shoot(page, 'people')
+
+  const load = await page
+    .locator('[role="img"][aria-label*="open"]')
+    .first()
+    .getAttribute('aria-label')
+  check('People reports the load it read off the board', /1 open/.test(load ?? ''), load ?? 'none')
+
+  await page.getByRole('button', { name: 'This is me' }).first().click()
+  await page.getByRole('button', { name: "That's me" }).first().waitFor({ timeout: 5000 })
+  check('a person can be claimed as you', true)
+
+  // The whole point of claiming one.
+  await page.keyboard.press('g')
+  await page.keyboard.press('w')
+  await page.getByRole('button', { name: 'List' }).click()
+  await page.getByLabel('Filter the work').fill('assignee:@me')
+  await page.waitForTimeout(300)
+  check(
+    'assignee:@me now matches, in the filter',
+    (await page.locator('.kb-list__row').count()) === 1,
+  )
+
+  await page.getByLabel('Filter the work').fill('')
+  await page.keyboard.press('Escape')
+
+  // `?` has to list exactly what is bound, or it becomes the next stale claim.
+  await page.locator('body').click()
+  await page.keyboard.press('?')
+  await page.getByRole('dialog', { name: 'Keyboard shortcuts' }).waitFor({ timeout: 5000 })
+  check('? lists the shortcuts', true)
+  await shoot(page, 'shortcuts')
+  await page.keyboard.press('Escape')
+  await page
+    .getByRole('dialog', { name: 'Keyboard shortcuts' })
+    .waitFor({ state: 'detached', timeout: 5000 })
+
+  // A letter typed into a field must stay in the field.
+  await page.getByRole('button', { name: 'Columns' }).click()
+  await page.locator('.kb-card').first().click()
+  await page.locator('#kb-title').fill('n')
+  check(
+    'a shortcut key typed into a field is text, not a shortcut',
+    (await page.locator('#kb-title').inputValue()) === 'n',
+  )
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+
+  await page.close()
 }
 
 /**
@@ -837,10 +959,10 @@ async function syncScenario(browser: Browser): Promise<void> {
   await bob.getByRole('button', { name: 'New item' }).waitFor({ timeout: 10_000 })
   check('a device with no board can join an existing repository', true)
 
-  await bob.getByRole('button', { name: 'Table' }).click()
-  await bob.locator('.kb-table').waitFor({ timeout: 5000 })
+  await bob.getByRole('button', { name: 'List' }).click()
+  await bob.locator('.kb-list__row').first().waitFor({ timeout: 5000 })
 
-  const bobSees = await bob.locator('.kb-table tbody tr').count()
+  const bobSees = await bob.locator('.kb-list__row').count()
   check("a second device pulls the first device's work", bobSees === 1, `${bobSees} rows`)
 
   // Bob adds something and pushes; Alice pulls it back.
@@ -857,9 +979,9 @@ async function syncScenario(browser: Browser): Promise<void> {
   )
 
   await syncThroughSettings(alice)
-  await alice.getByRole('button', { name: 'Table' }).click()
+  await alice.getByRole('button', { name: 'List' }).click()
   await alice.waitForTimeout(400)
-  const aliceSees = await alice.locator('.kb-table tbody tr').count()
+  const aliceSees = await alice.locator('.kb-list__row').count()
   check('the two devices converge on the same board', aliceSees === 2, `${aliceSees} rows`)
 
   await alice.close()

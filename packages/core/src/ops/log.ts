@@ -130,8 +130,6 @@ export function supersedes(
       return previous.kind === 'label.upsert' && previous.label.id === next.label.id
     case 'member.upsert':
       return previous.kind === 'member.upsert' && previous.member.id === next.member.id
-    case 'view.upsert':
-      return previous.kind === 'view.upsert' && previous.view.id === next.view.id
     default:
       return false
   }

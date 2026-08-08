@@ -38,7 +38,7 @@ function today(): string {
 }
 
 /** Points done against points committed, for the sprint the board is showing. */
-function SprintProgress({
+export function SprintProgress({
   project,
   sprintId,
 }: {
@@ -153,27 +153,33 @@ function Column({
 
 export type BoardViewProps = {
   readonly project: Project
+  /** Already filtered and, in a swimlane, already narrowed to this lane. */
+  readonly items: readonly Item[]
   readonly deliveries: ReadonlyMap<string, ItemDelivery>
+  readonly showIteration: boolean
   readonly onOpen: (itemId: string) => void
   readonly onAdd: (statusId: string) => void
 }
 
-/** `null` is every sprint; `''` is the ones in no sprint at all. */
-type SprintFilter = string | null
-
-export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps) {
+/**
+ * The columns, and the drag between them.
+ *
+ * It no longer decides what it shows. Which items reach it — and whether they
+ * are all of them, one sprint's worth, or one lane of a grouping — is the
+ * caller's business, because the same question is asked by the list layout and
+ * answering it twice is how two layouts start disagreeing.
+ */
+export function BoardView({
+  project,
+  items: visible,
+  deliveries,
+  showIteration,
+  onOpen,
+  onAdd,
+}: BoardViewProps) {
   const dispatch = useDispatch()
   const [dragging, setDragging] = useState<string | null>(null)
   const day = today()
-
-  const iterations = project.iterations.toSorted(byOrder)
-  const current = iterations.find((entry) => entry.startsAt <= day && entry.endsAt >= day)
-
-  // Everything, always, until someone narrows it. Opening on the current
-  // sprint reads well for a Scrum team and empties the board for a Kanban one,
-  // whose items belong to no sprint at all — and a board that hides work by
-  // default is a board that loses it. The current sprint is one click away.
-  const [sprint, setSprint] = useState<SprintFilter>(null)
 
   // Three sensors rather than one pointer sensor, because a mouse and a finger
   // disagree about what "I meant to drag that" looks like.
@@ -193,21 +199,14 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
     useSensor(KeyboardSensor, { coordinateGetter: boardKeyboardCoordinates }),
   )
 
-  const columns = useMemo(() => {
-    const statuses = project.statuses.toSorted(byOrder)
-    const visible = project.items.filter((item) => {
-      if (item.archived) return false
-      if (sprint === null) return true
-      return (item.iterationId ?? '') === sprint
-    })
-    return statuses.map((status) => ({
-      status,
-      items: visible.filter((item) => item.statusId === status.id).toSorted(byOrder),
-    }))
-  }, [project, sprint])
-
-  const shown = columns.reduce((total, column) => total + column.items.length, 0)
-  const hidden = project.items.filter((item) => !item.archived).length - shown
+  const columns = useMemo(
+    () =>
+      project.statuses.toSorted(byOrder).map((status) => ({
+        status,
+        items: visible.filter((item) => item.statusId === status.id).toSorted(byOrder),
+      })),
+    [project.statuses, visible],
+  )
 
   const draggedItem = dragging ? itemById(project, dragging) : null
 
@@ -282,41 +281,6 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
     )
   }
 
-  const toolbar = (
-    <div className="kb-toolbar">
-      <div className="kb-toolbar__group">
-        <span className="kb-toolbar__label">Sprint</span>
-        <select
-          className="kb-select"
-          aria-label="Filter by sprint"
-          value={sprint ?? '__all'}
-          onChange={(event) =>
-            setSprint(event.target.value === '__all' ? null : event.target.value)
-          }
-        >
-          <option value="__all">All</option>
-          {current && <option value={current.id}>Current sprint</option>}
-          {iterations.map((iteration) => (
-            <option key={iteration.id} value={iteration.id}>
-              {iteration.name}
-            </option>
-          ))}
-          <option value="">No sprint</option>
-        </select>
-      </div>
-
-      {sprint !== null && sprint !== '' && <SprintProgress project={project} sprintId={sprint} />}
-
-      <span className="kb-spacer" />
-
-      {hidden > 0 && (
-        <span className="kb-toolbar__label">
-          {hidden} item{hidden === 1 ? '' : 's'} outside this sprint
-        </span>
-      )}
-    </div>
-  )
-
   return (
     <DndContext
       sensors={sensors}
@@ -340,12 +304,6 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
         },
       }}
     >
-      {toolbar}
-
-      {project.items.every((item) => item.archived) && (
-        <BoardEmpty onAdd={() => onAdd(columns[0]?.status.id ?? '')} />
-      )}
-
       <div className="kb-board">
         {columns.map(({ status, items }) => (
           <Column
@@ -355,8 +313,7 @@ export function BoardView({ project, deliveries, onOpen, onAdd }: BoardViewProps
             items={items}
             day={day}
             deliveries={deliveries}
-            // Redundant when the board is already filtered to one sprint.
-            showIteration={sprint === null}
+            showIteration={showIteration}
             onOpen={onOpen}
             onAdd={onAdd}
           />
@@ -407,7 +364,7 @@ function overLabel(project: Project, id: string): string {
  * — the one case this screen exists for — could only get a column by going to
  * settings, which is the detour `AddColumn` was added to remove.
  */
-function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
+export function BoardEmpty({ onAdd }: { readonly onAdd: () => void }) {
   return (
     <div
       className="kb-row"

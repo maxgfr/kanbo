@@ -3,7 +3,7 @@
  */
 import { FIRST_KEY, keysBetween } from '../order/fractional.ts'
 import { SCHEMA_VERSION } from './types.ts'
-import type { Item, Project, Status, StatusCategory } from './types.ts'
+import type { Item, Member, Project, Status, StatusCategory } from './types.ts'
 
 export const EMPTY_PROJECT: Project = {
   id: '',
@@ -18,7 +18,6 @@ export const EMPTY_PROJECT: Project = {
   milestones: [],
   labels: [],
   members: [],
-  views: [],
   comments: [],
   nextRef: 1,
 }
@@ -68,8 +67,41 @@ export function itemById(project: Project, itemId: string): Item | null {
   return project.items.find((item) => item.id === itemId) ?? null
 }
 
+/**
+ * The person an id names, or nobody.
+ *
+ * Used to resolve "who is at this machine" against a project that may have
+ * moved on: an id whose member was removed, or a project replaced by an import
+ * from elsewhere, names nobody rather than naming a ghost. `assignee:@me` then
+ * matches nothing, which is the same answer as never having claimed a seat.
+ */
+export function memberById(project: Project, memberId: string | null): Member | null {
+  if (!memberId) return null
+  return project.members.find((member) => member.id === memberId) ?? null
+}
+
 export function categoryOf(project: Project, statusId: string): StatusCategory | null {
   return statusById(project, statusId)?.category ?? null
+}
+
+/**
+ * What is holding this item up, if anything.
+ *
+ * A blocker that is finished is not a blocker: the link stays in the log
+ * because it is what happened, but work waiting on something already delivered
+ * is work that can start. Three places asked this question and two of them had
+ * their own copy of the answer, which is one rewrite away from a board and a
+ * query disagreeing about the word "blocked".
+ */
+export function blockedBy(project: Project, item: Item): readonly Item[] {
+  return item.links
+    .filter((link) => link.type === 'blocked-by')
+    .map((link) => itemById(project, link.itemId))
+    .filter((blocker): blocker is Item => blocker !== null && blocker.completedAt === null)
+}
+
+export function isBlocked(project: Project, item: Item): boolean {
+  return blockedBy(project, item).length > 0
 }
 
 /** Items in a status, ready to render as a column. */

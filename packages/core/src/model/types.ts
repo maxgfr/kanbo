@@ -152,20 +152,6 @@ export type Sort = {
   readonly direction: 'asc' | 'desc'
 }
 
-export type ViewKind = 'board' | 'table' | 'backlog' | 'calendar' | 'roadmap'
-
-export type View = {
-  readonly id: string
-  readonly name: string
-  readonly kind: ViewKind
-  readonly filters: readonly Filter[]
-  readonly sorts: readonly Sort[]
-  readonly groupBy: string | null
-  /** Field ids shown on a card or as table columns, in order. */
-  readonly visibleFields: readonly string[]
-  readonly order: string
-}
-
 export type Comment = {
   readonly id: string
   readonly itemId: string
@@ -190,7 +176,6 @@ export type Project = {
   readonly milestones: readonly Milestone[]
   readonly labels: readonly Label[]
   readonly members: readonly Member[]
-  readonly views: readonly View[]
   readonly comments: readonly Comment[]
   /** Next number for the `key`-prefixed reference. */
   readonly nextRef: number

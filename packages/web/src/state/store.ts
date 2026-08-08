@@ -3,10 +3,8 @@ import {
   type OperationBody,
   type Ports,
   type Project,
-  type View,
   appendLocal,
   defaultStatuses,
-  keysBetween,
   mergeLogs,
   operationBuilder,
   reduceOperations,
@@ -190,45 +188,14 @@ export function createStore(): Store {
  * across — an empty board with no columns is a dead end, not a clean slate.
  */
 export function seedOperations(ports: Ports, name: string, key: string): OperationBody[] {
-  const statuses = defaultStatuses(() => ports.random.id())
-  const viewOrders = keysBetween(null, null, 3)
-
-  const views: View[] = [
-    {
-      id: ports.random.id(),
-      name: 'Board',
-      kind: 'board',
-      filters: [],
-      sorts: [],
-      groupBy: 'status',
-      visibleFields: [],
-      order: viewOrders[0]!,
-    },
-    {
-      id: ports.random.id(),
-      name: 'Table',
-      kind: 'table',
-      filters: [],
-      sorts: [],
-      groupBy: null,
-      visibleFields: [],
-      order: viewOrders[1]!,
-    },
-    {
-      id: ports.random.id(),
-      name: 'Backlog',
-      kind: 'backlog',
-      filters: [],
-      sorts: [],
-      groupBy: null,
-      visibleFields: [],
-      order: viewOrders[2]!,
-    },
-  ]
-
+  // Three saved views used to be written here and read by nothing: the sidebar
+  // had its own list, and the layout is now a control rather than a stored
+  // object. They travelled in every export and every sync for no one.
   return [
     { kind: 'project.set', patch: { name, key } },
-    ...statuses.map((status) => ({ kind: 'status.upsert' as const, status })),
-    ...views.map((view) => ({ kind: 'view.upsert' as const, view })),
+    ...defaultStatuses(() => ports.random.id()).map((status) => ({
+      kind: 'status.upsert' as const,
+      status,
+    })),
   ]
 }

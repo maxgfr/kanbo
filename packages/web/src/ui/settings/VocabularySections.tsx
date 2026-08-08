@@ -154,70 +154,12 @@ export function LabelsSection() {
   )
 }
 
-export function MembersSection() {
-  const project = useProject()
-  const dispatch = useDispatch()
-
-  return (
-    <section className="kb-field">
-      <h2 className="kb-field__label">People</h2>
-      <p className="kb-muted" style={{ margin: 0, lineHeight: 1.6 }}>
-        There is no user directory and no accounts — a person here is a name the team agreed on. The
-        handle is optional and only exists so assignment can round-trip with a forge.
-      </p>
-
-      {project.members.map((member) => (
-        <Row key={member.id}>
-          <input
-            className="kb-input"
-            style={{ flex: 1, minWidth: '8rem' }}
-            value={member.name}
-            aria-label={`Name of ${member.name}`}
-            onChange={(event) =>
-              void dispatch({
-                kind: 'member.upsert',
-                member: { ...member, name: event.target.value },
-              })
-            }
-          />
-          <input
-            className="kb-input data"
-            style={{ width: '10rem' }}
-            value={member.handle ?? ''}
-            placeholder="forge handle"
-            aria-label={`Forge handle for ${member.name}`}
-            onChange={(event) =>
-              void dispatch({
-                kind: 'member.upsert',
-                member: { ...member, handle: event.target.value || null },
-              })
-            }
-          />
-          <Button
-            variant="quiet"
-            icon="trash"
-            aria-label={`Remove ${member.name}`}
-            onClick={() => void dispatch({ kind: 'member.delete', memberId: member.id })}
-          />
-        </Row>
-      ))}
-
-      <div>
-        <Button
-          icon="plus"
-          onClick={() =>
-            void dispatch({
-              kind: 'member.upsert',
-              member: { id: createPorts().random.id(), name: 'New person', handle: null },
-            })
-          }
-        >
-          Add a person
-        </Button>
-      </div>
-    </section>
-  )
-}
+/**
+ * People used to be edited here, between labels and custom fields — which is
+ * where a vocabulary belongs and not where anyone looks to ask what someone is
+ * working on. The team now has its own screen, which can also say which person
+ * is you: see `ui/people/PeopleView.tsx`.
+ */
 
 export function FieldsSection() {
   const project = useProject()
