@@ -91,6 +91,16 @@ const READINGS: Record<string, { readonly action: string; readonly command: stri
   'release notes': { action: 'releaseNotes', command: 'release' },
   'the roadmap': { action: 'roadmap', command: 'roadmap' },
   'flow metrics': { action: 'metrics', command: 'metrics' },
+
+  // The two the browser could do and a terminal could not at all, which is
+  // where "iso" was furthest from true.
+  'an encrypted share': { action: 'shareCreate', command: 'share' },
+  'reading a share back': { action: 'shareOpen', command: 'open-share' },
+  'repository settings': { action: 'remoteSet', command: 'remote' },
+  'the forge token': { action: 'tokenSet', command: 'token' },
+  'syncing through a repository': { action: 'syncNow', command: 'sync' },
+  'reconciling issues': { action: 'issuesReconcile', command: 'issues' },
+  'pull requests on the ticket': { action: 'pullRequests', command: 'prs' },
 }
 
 const failures: string[] = []

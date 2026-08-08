@@ -17,9 +17,20 @@
  * Run with `node packages/cli/src/main.ts <command>`.
  */
 import { KanboError, openWorkspace } from '@kanbo/workspace'
+import { ImportError, ProviderError, ShareError } from '@kanbo/core'
 
 import { COMMANDS, helpText } from './commands.ts'
 import { parseFlags } from './flags.ts'
+
+/**
+ * Errors that are sentences, and errors that are bugs.
+ *
+ * The domain raises these deliberately, with a message written for whoever is
+ * reading — "that passphrase does not open this share" is an answer, not a
+ * failure. Anything else is something we did not anticipate, and it keeps its
+ * stack trace, because swallowing it would turn a bug into a shrug.
+ */
+const EXPECTED = [KanboError, ShareError, ImportError, ProviderError]
 
 const [, , name = 'help', ...rest] = process.argv
 
@@ -59,5 +70,6 @@ try {
   })
 } catch (error) {
   if (error instanceof KanboError) fail(error.message, error.candidates)
+  if (EXPECTED.some((kind) => error instanceof kind)) fail((error as Error).message)
   throw error
 }

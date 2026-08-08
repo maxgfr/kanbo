@@ -12,7 +12,8 @@
  * would mean inventing labels to smuggle Kanbo's model into a system that does
  * not have it, and those labels become someone else's mess.
  */
-import type { Item, ItemType, Project } from '../model/types.ts'
+import type { Item, ItemType, Project, Status } from '../model/types.ts'
+import { byOrder } from '../order/fractional.ts'
 import type { OperationBody } from '../ops/types.ts'
 
 export type RemoteIssue = {
@@ -199,4 +200,67 @@ export function operationsForImport(
       },
     ]
   })
+}
+
+/**
+ * The two columns reconciliation lands issues in.
+ *
+ * Sorted before choosing, because a team can have several todo and several done
+ * columns. Unsorted, the landing column for an imported issue would be
+ * whichever status happened to be created first — invisible on screen, and
+ * liable to change the day someone reorders the board.
+ */
+export function landingStatuses(project: Project): {
+  readonly backlog: Status | undefined
+  readonly done: Status | undefined
+} {
+  const inOrder = project.statuses.toSorted(byOrder)
+  return {
+    backlog: inOrder.find((status) => status.category === 'todo'),
+    done: inOrder.find((status) => status.category === 'done'),
+  }
+}
+
+/**
+ * A reconciliation plan, as the operations that carry it out.
+ *
+ * This is where the policy lives, and it lives here once. A browser and a
+ * terminal reconciling the same repository differently would be worse than
+ * either of them not reconciling at all: whichever ran last would look like the
+ * truth. The decisions it encodes are worth naming —
+ *
+ * An issue that arrives assigned to somebody the board knows lands on their
+ * plate, but only on import: a local assignment is a real decision, and the
+ * forge is not more authoritative about it than the person who made it.
+ *
+ * A closed issue moves the card to a done column rather than setting a field,
+ * because in Kanbo "closed" *is* the column — which is also what keeps cycle
+ * time honest.
+ */
+export function operationsForSync(
+  project: Project,
+  plan: IssueSyncPlan,
+  makeItem: (issue: RemoteIssue, statusId: string | undefined) => Item,
+): readonly OperationBody[] {
+  const { backlog, done } = landingStatuses(project)
+
+  const bodies: OperationBody[] = [
+    ...operationsForImport(plan.toCreate, (issue) =>
+      makeItem(issue, issue.state === 'closed' ? done?.id : backlog?.id),
+    ),
+  ]
+
+  for (const { item, issue } of plan.toUpdate) {
+    bodies.push({
+      kind: 'item.set',
+      itemId: item.id,
+      patch: { title: issue.title, description: issue.body },
+    })
+    const target = issue.state === 'closed' ? done : backlog
+    if (target && target.id !== item.statusId) {
+      bodies.push({ kind: 'item.move', itemId: item.id, statusId: target.id, order: item.order })
+    }
+  }
+
+  return bodies
 }

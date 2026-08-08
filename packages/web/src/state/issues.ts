@@ -2,11 +2,10 @@ import {
   ISSUE_FIELD,
   type OperationBody,
   type RemoteIssue,
-  byOrder,
   hasIssues,
   membersForHandles,
   newItem,
-  operationsForImport,
+  operationsForSync,
   planIssueSync,
   typeFromLabels,
 } from '@kanbo/core'
@@ -51,13 +50,6 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
   const doneStatuses = new Set(
     project.statuses.filter((status) => status.category === 'done').map((status) => status.id),
   )
-  // Sorted before choosing, because a team can have several todo and several
-  // done columns. Unsorted, the landing column for an imported issue would be
-  // whichever status happened to be created first — invisible on screen, and
-  // liable to change the day someone reorders the board.
-  const inOrder = project.statuses.toSorted(byOrder)
-  const backlog = inOrder.find((status) => status.category === 'todo')
-  const done = inOrder.find((status) => status.category === 'done')
 
   let issues: readonly RemoteIssue[]
   try {
@@ -83,40 +75,21 @@ export async function syncIssues(store: Store): Promise<IssueSyncReport> {
         : `Imported ${plan.toCreate.length}, updated ${plan.toUpdate.length}, pushed ${pushed}.`,
   })
 
+  // The policy — which column an issue lands in, that a closed issue is moved
+  // rather than flagged, that assignees are read only on import — lives in
+  // `@kanbo/core`, because a browser and a terminal reconciling the same
+  // repository differently would be worse than neither of them reconciling.
   const bodies: OperationBody[] = [
-    ...operationsForImport(plan.toCreate, (issue) =>
+    ...operationsForSync(project, plan, (issue, statusId) =>
       newItem(project, ports, {
         title: issue.title,
         description: issue.body,
         type: typeFromLabels(issue.labels),
-        // Only on import. An issue that arrives assigned to someone the board
-        // knows should land on their plate; an issue that has been here a while
-        // should not have a local assignment overwritten every reconcile,
-        // because assigning in Kanbo is a real decision and the forge is not
-        // more authoritative about it.
         assignees: membersForHandles(project, issue.assignees),
-        ...(issue.state === 'closed' && done
-          ? { statusId: done.id }
-          : backlog
-            ? { statusId: backlog.id }
-            : {}),
+        ...(statusId ? { statusId } : {}),
       }),
     ),
   ]
-
-  for (const { item, issue } of plan.toUpdate) {
-    bodies.push({
-      kind: 'item.set',
-      itemId: item.id,
-      patch: { title: issue.title, description: issue.body },
-    })
-    // The closed state lives in the status, so a change there is a move rather
-    // than a field edit — which is also what keeps the metrics honest.
-    const target = issue.state === 'closed' ? done : backlog
-    if (target && target.id !== item.statusId) {
-      bodies.push({ kind: 'item.move', itemId: item.id, statusId: target.id, order: item.order })
-    }
-  }
 
   try {
     if (bodies.length > 0) await store.dispatch(...bodies)

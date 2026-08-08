@@ -74,10 +74,13 @@ describe('resolving a person', () => {
   })
 })
 
-describe('resolving a sprint', () => {
-  const iteration = (id: string, name: string, startsAt: string, endsAt: string) =>
-    ({ id, name, goal: '', startsAt, endsAt, capacity: null, order: 'a' }) as const
+const iteration = (id: string, name: string, startsAt: string, endsAt: string) =>
+  ({ id, name, goal: '', startsAt, endsAt, capacity: null, order: 'a' }) as const
 
+const item = (id: string, ref: string) =>
+  ({ ...EMPTY_PROJECT, id, ref }) as unknown as Project['items'][number]
+
+describe('resolving a sprint', () => {
   const now = Date.parse('2026-08-08T12:00:00Z')
   const project = projectWith({
     iterations: [
@@ -101,9 +104,6 @@ describe('resolving a sprint', () => {
 })
 
 describe('resolving an item', () => {
-  const item = (id: string, ref: string) =>
-    ({ ...EMPTY_PROJECT, id, ref }) as unknown as Project['items'][number]
-
   const project = projectWith({ items: [item('x1', 'APL-1'), item('x2', 'APL-2')] })
 
   it('takes a reference in any case', () => {

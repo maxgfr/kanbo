@@ -52,6 +52,11 @@ import type { Workspace } from './session.ts'
 
 // ----------------------------------------------------------------- item
 
+/** Milliseconds as a number of days, rounded to something a person reads. */
+function days(ms: number | null): number | null {
+  return ms === null ? null : Math.round((ms / DAY) * 10) / 10
+}
+
 export type ItemDetail = {
   readonly item: Item
   readonly status: Status | null
@@ -74,8 +79,6 @@ export type ItemDetail = {
 export function itemDetail(workspace: Workspace, ref: string, now: number): ItemDetail {
   const { project } = workspace
   const item = resolveItem(project, ref)
-
-  const days = (ms: number | null) => (ms === null ? null : Math.round((ms / DAY) * 10) / 10)
 
   return {
     item,
@@ -262,8 +265,8 @@ export function releaseNotes(
     return changelogMarkdown(project, sprint.name, { iterationId: sprint.id })
   }
 
-  const days = options.days ?? 14
-  return changelogMarkdown(project, suggestedTitle(now), { from: now - days * DAY, to: now })
+  const window = options.days ?? 14
+  return changelogMarkdown(project, suggestedTitle(now), { from: now - window * DAY, to: now })
 }
 
 // -------------------------------------------------------------- roadmap
@@ -307,16 +310,16 @@ export type Metrics = {
   readonly flow: readonly FlowDay[]
 }
 
-export function metrics(workspace: Workspace, now: number, days = 30): Metrics {
+export function metrics(workspace: Workspace, now: number, window = 30): Metrics {
   const { project } = workspace
-  const from = isoDay(now - days * DAY)
+  const from = isoDay(now - window * DAY)
   const to = isoDay(now)
 
   const finished = project.items.filter((item) => item.completedAt !== null && !item.archived)
 
   const aging = project.items
     .filter((item) => categoryOf(project, item.statusId) === 'in-progress' && !item.archived)
-    .map((item) => ({ item, days: Math.round(((ageInProgress(item, now) ?? 0) / DAY) * 10) / 10 }))
+    .map((item) => ({ item, days: days(ageInProgress(item, now)) ?? 0 }))
     .toSorted((a, b) => b.days - a.days)
 
   return {

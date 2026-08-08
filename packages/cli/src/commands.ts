@@ -43,12 +43,23 @@ import {
   sprintReport,
   sprintUpsert,
   summary,
+  shareCreate,
+  shareOpen,
+  remoteGet,
+  remoteSet,
+  tokenSet,
+  hasStoredToken,
+  syncNow,
+  issuesReconcile,
+  pullRequests,
   velocities,
   whoAmI,
   type PatchSpec,
 } from '@kanbo/workspace'
 import { KanboError } from '@kanbo/workspace'
 import { type StatusCategory, byOrder, exportCsv, exportJson } from '@kanbo/core'
+
+import { readFile, stat, writeFile } from 'node:fs/promises'
 
 import { type Flags, optional } from './flags.ts'
 
@@ -92,6 +103,7 @@ export type Group =
   | 'releases'
   | 'metrics'
   | 'portability'
+  | 'forge'
 
 /** JSON when asked for, and the same values either way. */
 function emit(context: Context, value: unknown, lines: () => void): void {
@@ -129,6 +141,11 @@ function pad(value: string, width: number): string {
   return value.padEnd(width)
 }
 
+/** Milliseconds as a number of days, or a dash when there is nothing to say. */
+function day(value: number | null): string {
+  return value === null ? '—' : `${Math.round((value / 86_400_000) * 10) / 10}d`
+}
+
 /**
  * A flag that is present, as a definite value.
  *
@@ -137,7 +154,7 @@ function pad(value: string, width: number): string {
  * undefined" are different, and every one of these is written behind a
  * `has()` guard that has already answered the first question.
  */
-function text(flags: Flags, name: string): string {
+function flagText(flags: Flags, name: string): string {
   return flags.get(name) ?? ''
 }
 
@@ -257,8 +274,8 @@ export const COMMANDS: Record<string, Command> = {
         case 'set': {
           const name = rest.join(' ')
           const patch: Parameters<typeof columnSet>[2] = {}
-          if (flags.has('name')) patch.name = text(flags, 'name')
-          if (flags.has('category')) patch.category = text(flags, 'category')
+          if (flags.has('name')) patch.name = flagText(flags, 'name')
+          if (flags.has('category')) patch.category = flagText(flags, 'category')
           if (flags.has('wip')) patch.wipLimit = flags.number('wip') ?? null
           if (flags.has('color')) patch.color = clearable(flags, 'color')
           const { result } = await columnSet(context.workspace, name, patch)
@@ -715,7 +732,7 @@ export const COMMANDS: Record<string, Command> = {
       if (action !== 'add' && action !== 'set') throw new KanboError(`Usage: kanbo ${this.usage}`)
 
       const patch: { name?: string; handle?: string | null } = {}
-      if (context.flags.has('name')) patch.name = text(context.flags, 'name')
+      if (context.flags.has('name')) patch.name = flagText(context.flags, 'name')
       if (context.flags.has('handle')) patch.handle = clearable(context.flags, 'handle')
 
       const { result } = await personUpsert(context.workspace, name, patch)
@@ -787,10 +804,10 @@ export const COMMANDS: Record<string, Command> = {
         case 'new':
         case 'set': {
           const patch: Parameters<typeof sprintUpsert>[2] = {}
-          if (flags.has('name')) patch.name = text(flags, 'name')
-          if (flags.has('goal')) patch.goal = text(flags, 'goal')
-          if (flags.has('start')) patch.startsAt = text(flags, 'start')
-          if (flags.has('end')) patch.endsAt = text(flags, 'end')
+          if (flags.has('name')) patch.name = flagText(flags, 'name')
+          if (flags.has('goal')) patch.goal = flagText(flags, 'goal')
+          if (flags.has('start')) patch.startsAt = flagText(flags, 'start')
+          if (flags.has('end')) patch.endsAt = flagText(flags, 'end')
           if (flags.has('capacity')) patch.capacity = flags.number('capacity') ?? null
 
           const { result } = await sprintUpsert(context.workspace, name, patch, context.now)
@@ -909,8 +926,9 @@ export const COMMANDS: Record<string, Command> = {
       if (action !== 'new' && action !== 'set') throw new KanboError(`Usage: kanbo ${this.usage}`)
 
       const patch: { name?: string; description?: string; dueOn?: string | null } = {}
-      if (context.flags.has('name')) patch.name = text(context.flags, 'name')
-      if (context.flags.has('description')) patch.description = text(context.flags, 'description')
+      if (context.flags.has('name')) patch.name = flagText(context.flags, 'name')
+      if (context.flags.has('description'))
+        patch.description = flagText(context.flags, 'description')
       if (context.flags.has('due')) patch.dueOn = clearable(context.flags, 'due')
 
       const { result } = await milestoneUpsert(context.workspace, name, patch)
@@ -926,8 +944,8 @@ export const COMMANDS: Record<string, Command> = {
       if (context.args[0] !== 'notes') throw new KanboError(`Usage: kanbo ${this.usage}`)
 
       const options: { release?: string; sprint?: string; days?: number } = {}
-      if (context.flags.has('release')) options.release = text(context.flags, 'release')
-      if (context.flags.has('sprint')) options.sprint = text(context.flags, 'sprint')
+      if (context.flags.has('release')) options.release = flagText(context.flags, 'release')
+      if (context.flags.has('sprint')) options.sprint = flagText(context.flags, 'sprint')
       if (context.flags.has('days')) options.days = context.flags.number('days') ?? 14
 
       const markdown = releaseNotes(context.workspace, options, context.now)
@@ -971,9 +989,6 @@ export const COMMANDS: Record<string, Command> = {
     async run(context) {
       const data = metrics(context.workspace, context.now, context.flags.number('days') ?? 30)
       emit(context, data, () => {
-        const day = (value: number | null) =>
-          value === null ? '—' : `${Math.round((value / 86_400_000) * 10) / 10}d`
-
         context.out('cycle time')
         context.out(
           `  p50 ${day(data.cycle.p50)}   p85 ${day(data.cycle.p85)}   p95 ${day(data.cycle.p95)}`,
@@ -1038,6 +1053,279 @@ export const COMMANDS: Record<string, Command> = {
       emit(context, result, () => context.out(`Merged ${result.added} new operations.`))
     },
   },
+
+  share: {
+    group: 'portability',
+    usage: 'share [--note x] [--passphrase] [--out file]',
+    summary: 'an encrypted read-only copy of the board, uploaded nowhere',
+    async run(context) {
+      /**
+       * The passphrase is never a flag with a value.
+       *
+       * `--passphrase hunter2` would sit in the shell history and in the output
+       * of `ps` for every user on the machine. It is read from the terminal, or
+       * from stdin when there is no terminal to read from.
+       */
+      const passphrase = context.flags.has('passphrase')
+        ? await promptSecret('Passphrase for this share: ')
+        : null
+
+      const result = await shareCreate(
+        context.workspace,
+        context.flags.get('note') ?? '',
+        passphrase,
+      )
+
+      const out = context.flags.get('out')
+      if (!result.fitsInLink || out !== undefined) {
+        const path = out ?? result.fileName
+        await writeFile(path, result.file, 'utf8')
+        emit(context, { ...result, writtenTo: path }, () => {
+          context.out(`Wrote ${path}`)
+          context.out(result.fragment)
+          context.out('')
+          context.out(
+            'The board is in the file; the link unlocks it. Send them by different routes if you can.',
+          )
+        })
+        return
+      }
+
+      emit(context, result, () => {
+        context.out(result.fragment)
+        context.out('')
+        context.out(
+          result.passphrase
+            ? 'Append this to your Kanbo URL. The passphrase is not in it — send that another way.'
+            : 'Append this to your Kanbo URL. The key is after the #, which browsers never send to the host.',
+        )
+        context.out('A share cannot be revoked and does not expire. It is a copy.')
+      })
+    },
+  },
+
+  'open-share': {
+    group: 'portability',
+    usage: 'open-share <link|file> [--passphrase] [--file board.kanbo-share]',
+    summary: 'read a share someone sent you',
+    async run(context) {
+      const source = required(context, 0, 'open-share <link|file>')
+      const text = (await exists(source)) ? await readFile(source, 'utf8') : source
+
+      const options: { passphrase?: string; file?: string } = {}
+      if (context.flags.has('passphrase')) {
+        options.passphrase = await promptSecret('Passphrase: ')
+      }
+      const file = context.flags.get('file')
+      if (file !== undefined) options.file = await readFile(file, 'utf8')
+
+      const payload = await shareOpen(text, options)
+      emit(context, payload, () => {
+        context.out(`${payload.project.name} (${payload.project.key}) — a read-only copy`)
+        if (payload.note) context.out(payload.note)
+        context.out('')
+        for (const column of board(payload.project)) {
+          const items = column.items
+          context.out(`\n${column.status.name}  (${items.length})`)
+          for (const item of items) context.out(`  ${pad(item.ref, 10)} ${item.title}`)
+          if (items.length === 0) context.out('  —')
+        }
+        context.out('')
+      })
+    },
+  },
+
+  // --------------------------------------------------------------- forge
+
+  remote: {
+    group: 'forge',
+    usage:
+      'remote set [--forge github|gitlab] [--repo owner/name] [--branch main] [--api url]   ·   remote show',
+    summary: 'point this store at a repository',
+    async run(context) {
+      if (context.args[0] === 'show' || context.args.length === 0) {
+        const remote = await remoteGet(context.workspace)
+        const token = await hasStoredToken(context.workspace)
+        emit(context, { remote, token }, () => {
+          if (!remote) {
+            context.out('No repository configured. This store is local only.')
+            return
+          }
+          context.out(`forge      ${remote.forge}`)
+          context.out(`api        ${remote.apiBaseUrl}`)
+          context.out(`repository ${remote.repository || '(none)'}`)
+          context.out(`branch     ${remote.branch}`)
+          context.out(`token      ${token ? 'saved, encrypted' : 'not saved'}`)
+        })
+        return
+      }
+      if (context.args[0] !== 'set') throw new KanboError(`Usage: kanbo ${this.usage}`)
+
+      const forge = context.flags.get('forge')
+      if (forge !== undefined && forge !== 'github' && forge !== 'gitlab') {
+        throw new KanboError('--forge is github or gitlab.')
+      }
+
+      const patch: Parameters<typeof remoteSet>[1] = {
+        ...(forge === undefined ? {} : { forge }),
+        ...(context.flags.has('repo') ? { repository: flagText(context.flags, 'repo') } : {}),
+        ...(context.flags.has('branch') ? { branch: flagText(context.flags, 'branch') } : {}),
+        ...(context.flags.has('api') ? { apiBaseUrl: flagText(context.flags, 'api') } : {}),
+      }
+
+      const { result } = await remoteSet(context.workspace, patch)
+      emit(context, result, () =>
+        context.out(
+          `${result.forge} ${result.repository} on ${result.branch} via ${result.apiBaseUrl}`,
+        ),
+      )
+    },
+  },
+
+  token: {
+    group: 'forge',
+    usage: 'token set   ·   token rm',
+    summary: 'the forge access token, encrypted at rest',
+    async run(context) {
+      if (context.args[0] === 'rm') {
+        await tokenSet(context.workspace, '')
+        emit(context, { saved: false }, () => context.out('Token removed.'))
+        return
+      }
+      if (context.args[0] !== 'set') throw new KanboError(`Usage: kanbo ${this.usage}`)
+
+      // Never an argument, for the same reason a passphrase never is.
+      const token = await promptSecret('Access token: ')
+      if (token.trim() === '') throw new KanboError('Nothing given, so nothing saved.')
+
+      await tokenSet(context.workspace, token.trim())
+      emit(context, { saved: true }, () =>
+        context.out('Saved, encrypted with a key this store keeps at 0600.'),
+      )
+    },
+  },
+
+  sync: {
+    group: 'forge',
+    usage: 'sync',
+    summary: 'pull, merge and push through the repository',
+    async run(context) {
+      const { result } = await syncNow(context.workspace)
+      emit(context, result, () =>
+        context.out(
+          result.added === 0
+            ? `Already up to date: ${result.total} operations.`
+            : `Merged ${result.added} operation(s) from the repository; ${result.total} in total.`,
+        ),
+      )
+    },
+  },
+
+  issues: {
+    group: 'forge',
+    usage: 'issues [--apply]',
+    summary: 'reconcile the board with the forge, showing the plan first',
+    async run(context) {
+      const apply = context.flags.has('apply')
+      const { result } = await issuesReconcile(context.workspace, apply)
+
+      emit(context, result, () => {
+        if (!apply) {
+          context.out(
+            `Would import ${result.plan.toCreate.length}, update ${result.plan.toUpdate.length}, push ${result.plan.toPush.length}.`,
+          )
+          for (const issue of result.plan.toCreate) {
+            context.out(`  new     #${issue.number}  ${issue.title}`)
+          }
+          for (const { item, issue } of result.plan.toUpdate) {
+            context.out(`  update  ${pad(item.ref, 10)} from #${issue.number}`)
+          }
+          for (const push of result.plan.toPush) {
+            context.out(`  push    ${pad(push.item.ref, 10)} → #${push.number} ${push.state}`)
+          }
+          context.out('')
+          context.out('Nothing was written. Run it again with --apply.')
+          return
+        }
+        context.out(
+          `Imported ${result.imported}, updated ${result.updated}, pushed ${result.pushed}.`,
+        )
+      })
+    },
+  },
+
+  prs: {
+    group: 'forge',
+    usage: 'prs',
+    summary: 'pull requests matched to cards, and what CI says',
+    async run(context) {
+      const rows = await pullRequests(context.workspace)
+      emit(context, rows, () => {
+        for (const row of rows) {
+          // Unknown check status is drawn as unknown, never as passing —
+          // the same rule the card badge follows.
+          const checks = row.delivery.checks ?? 'unknown'
+          const state = row.delivery.merged
+            ? 'merged'
+            : row.delivery.draftOnly
+              ? 'draft'
+              : `${row.delivery.open} open`
+          context.out(`  ${pad(row.ref, 10)} ${pad(state, 10)} ${pad(checks, 8)} ${row.title}`)
+        }
+        if (rows.length === 0) {
+          context.out(
+            '  — no pull request mentions a card. One that mentions nothing is left unlinked.',
+          )
+        }
+      })
+    },
+  },
+}
+
+/**
+ * Read a secret without echoing it, and without putting it in argv.
+ *
+ * A passphrase or a token passed as `--passphrase hunter2` lands in the shell
+ * history and in `ps` output for every user on the machine. When there is no
+ * terminal — a pipe, a script — it is read from stdin instead, which is the
+ * shape a CI job wants anyway.
+ */
+async function promptSecret(prompt: string): Promise<string> {
+  if (!process.stdin.isTTY) return (await readStdin()).replace(/\r?\n$/, '')
+
+  process.stderr.write(prompt)
+  const stdin = process.stdin
+  const wasRaw = stdin.isRaw
+  stdin.setRawMode(true)
+  stdin.resume()
+
+  let secret = ''
+  try {
+    for await (const chunk of stdin) {
+      const text = String(chunk)
+      if (text === '\r' || text === '\n' || text === '') break
+      if (text === '') {
+        process.stderr.write('\n')
+        process.exit(130)
+      }
+      if (text === '' || text === '\b') secret = secret.slice(0, -1)
+      else secret += text
+    }
+  } finally {
+    stdin.setRawMode(wasRaw)
+    stdin.pause()
+    process.stderr.write('\n')
+  }
+  return secret
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function readStdin(): Promise<string> {
@@ -1113,6 +1401,7 @@ const GROUP_TITLES: Record<Group, string> = {
   releases: 'Releases and roadmap',
   metrics: 'Metrics',
   portability: 'Portability',
+  forge: 'Repository mode',
 }
 
 /** The help, generated from the table above so it cannot describe a command that is gone. */
