@@ -7,8 +7,9 @@ import {
   byOrder,
   blockedBy,
   itemById,
+  linkClosesCycle,
+  mirrorLink,
   statusById,
-  wouldCycle,
 } from '@kanbo/core'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -364,41 +365,30 @@ const RELATIONS: readonly {
   readonly label: string
   readonly empty: string
   readonly add: string
-  /** The link written on the other item, so the pair reads the same both ways. */
-  readonly inverse: LinkType
-  readonly acyclic: boolean
 }[] = [
   {
     type: 'blocked-by',
     label: 'Blocked by',
     empty: 'Nothing is blocking this.',
     add: 'Add a blocking dependency',
-    inverse: 'blocks',
-    acyclic: true,
   },
   {
     type: 'blocks',
     label: 'Blocks',
     empty: 'This is not holding anything up.',
     add: 'Add something this blocks',
-    inverse: 'blocked-by',
-    acyclic: true,
   },
   {
     type: 'relates-to',
     label: 'Related',
     empty: 'Nothing related yet.',
     add: 'Add a related item',
-    inverse: 'relates-to',
-    acyclic: false,
   },
   {
     type: 'duplicates',
     label: 'Duplicates',
     empty: 'Not a duplicate of anything.',
     add: 'Add an item this duplicates',
-    inverse: 'duplicates',
-    acyclic: false,
   },
 ]
 
@@ -468,7 +458,7 @@ function Relation({
                     kind: 'item.unlink',
                     itemId: link.itemId,
                     targetId: item.id,
-                    linkType: relation.inverse,
+                    linkType: mirrorLink(relation.type),
                   },
                 )
               }
@@ -485,18 +475,12 @@ function Relation({
           const targetId = event.target.value
           if (!targetId) return
 
-          if (relation.acyclic) {
-            // Asked in the direction that closes the loop: whether the item
-            // being pointed at already depends on this one.
-            const from = relation.type === 'blocked-by' ? targetId : item.id
-            const to = relation.type === 'blocked-by' ? item.id : targetId
-            if (wouldCycle(project, from, to)) {
-              const other = itemById(project, targetId)
-              setError(
-                `${other?.ref ?? 'That item'} is already on the other side of this chain. Linking these would make it circular.`,
-              )
-              return
-            }
+          if (linkClosesCycle(project, item.id, targetId, relation.type)) {
+            const other = itemById(project, targetId)
+            setError(
+              `${other?.ref ?? 'That item'} is already on the other side of this chain. Linking these would make it circular.`,
+            )
+            return
           }
 
           setError(null)
@@ -505,7 +489,7 @@ function Relation({
             {
               kind: 'item.link',
               itemId: targetId,
-              link: { type: relation.inverse, itemId: item.id },
+              link: { type: mirrorLink(relation.type), itemId: item.id },
             },
           )
         }}

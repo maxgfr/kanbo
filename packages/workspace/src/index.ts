@@ -24,5 +24,8 @@ export {
   resolveStatus,
 } from './resolve.ts'
 
+export * from './patch.ts'
 export * from './write.ts'
+export * from './write-more.ts'
 export * from './read.ts'
+export * from './read-more.ts'

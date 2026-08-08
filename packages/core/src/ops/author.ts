@@ -8,7 +8,7 @@
  * the injected ports so tests stay deterministic.
  */
 import { itemById } from '../model/project.ts'
-import type { Item, Project } from '../model/types.ts'
+import type { Item, LinkType, Project } from '../model/types.ts'
 import { FIRST_KEY, byOrder, keyBetween } from '../order/fractional.ts'
 import type { Ports } from '../ports/index.ts'
 import { nextLamport } from './log.ts'
@@ -152,4 +152,48 @@ export function wouldCycle(project: Project, fromId: string, toId: string): bool
     }
   }
   return false
+}
+
+/**
+ * The link written on the other item, so the pair reads the same from both ends.
+ *
+ * "A blocks B" and "B is blocked by A" are one fact, and a board that stored
+ * only the half you happened to type would draw a roadmap arrow the other card
+ * knew nothing about. The symmetric relations are their own inverse.
+ */
+export function mirrorLink(type: LinkType): LinkType {
+  switch (type) {
+    case 'blocks':
+      return 'blocked-by'
+    case 'blocked-by':
+      return 'blocks'
+    case 'relates-to':
+      return 'relates-to'
+    case 'duplicates':
+      return 'duplicates'
+  }
+}
+
+/**
+ * Would linking these two, this way round, close a loop?
+ *
+ * Only the blocking pair can: an order of work that comes back to itself never
+ * terminates, whereas a loop of "relates to" is not a loop at all — it is two
+ * people saying the same true thing about each other.
+ *
+ * The direction matters and is easy to get backwards, which is the reason this
+ * is a function rather than two lines at each call site. `blocked-by` on this
+ * item means the *target* comes first, so the question is whether the target
+ * already depends on it.
+ */
+export function linkClosesCycle(
+  project: Project,
+  itemId: string,
+  targetId: string,
+  type: LinkType,
+): boolean {
+  if (type === 'relates-to' || type === 'duplicates') return false
+  return type === 'blocked-by'
+    ? wouldCycle(project, targetId, itemId)
+    : wouldCycle(project, itemId, targetId)
 }
