@@ -5,3 +5,10 @@ pnpm-lock.yaml
 
 # Caches written by editor tooling, which is not ours to format.
 .impeccable/
+
+# Written by semantic-release from the commit history, in its own house style:
+# `*` bullets where Prettier wants `-`. Formatting it would put `format:check`
+# and the release in a fight that the release wins every time, because it
+# regenerates the file after the gate has run — which is exactly how the 0.3.0
+# changelog left `main` unable to pass its own verify.
+CHANGELOG.md
