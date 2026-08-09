@@ -54,9 +54,16 @@ const SITES = [
     find: /(export const VERSION = ')([^']+)(')/,
     to: version,
   },
-  { file: 'README.md', find: /(kanbo-board@)(\d+\.\d+)/, to: pin },
-  { file: 'skills/kanbo/SKILL.md', find: /(kanbo-board@)(\d+\.\d+)/, to: pin },
-  { file: 'packages/npm/README.md', find: /(kanbo-board@)(\d+\.\d+)/, to: pin },
+  // The closing quote is captured rather than merely implied, for two reasons.
+  // The replacement below is `$1…$3`, so a two-group regex leaves a literal
+  // `$3` in the file — which is precisely what 0.3.0 published, three times
+  // over. And an unanchored match would then still find `0.3` inside the
+  // wreckage `0.3$3` and call it up to date, so the damage was invisible to
+  // `--check` as well. Anchored, a corrupted line matches nothing and is
+  // reported as such.
+  { file: 'README.md', find: /(kanbo-board@)(\d+\.\d+)(")/, to: pin },
+  { file: 'skills/kanbo/SKILL.md', find: /(kanbo-board@)(\d+\.\d+)(")/, to: pin },
+  { file: 'packages/npm/README.md', find: /(kanbo-board@)(\d+\.\d+)(")/, to: pin },
 ]
 
 const drifted = []
