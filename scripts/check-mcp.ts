@@ -289,6 +289,42 @@ try {
   })
   check('a second project is refused', failed(twice), String(payload(twice)))
 
+  // ---- several calls in flight at once, which is how a model actually works
+
+  /**
+   * A client is free to send tool calls in parallel, and a model asked for five
+   * cards sends five requests together. Each call opens its own snapshot of the
+   * log and writes the whole thing back, so without a queue they all read the
+   * same state and the last write wins — which is not merely lossy, it is lossy
+   * while reporting success: every one of the five came back with a reference,
+   * all of them APL-1, and one card existed afterwards.
+   */
+  const together = await Promise.all(
+    ['one', 'two', 'three', 'four', 'five'].map((word) =>
+      session.call('tools/call', {
+        name: 'kanbo_item_create',
+        arguments: { title: `Concurrent ${word}` },
+      }),
+    ),
+  )
+
+  const refs = together.map((response) => (payload(response) as { ref?: string }).ref)
+  check(
+    'five calls at once get five different references',
+    new Set(refs).size === 5 && refs.every(Boolean),
+    refs.join(' '),
+  )
+
+  const afterwards = payload(
+    await session.call('tools/call', { name: 'kanbo_search', arguments: { query: 'is:open' } }),
+  ) as { title: string }[]
+  const concurrent = afterwards.filter((item) => item.title.startsWith('Concurrent'))
+  check(
+    'and all five are actually on the board afterwards',
+    concurrent.length === 5,
+    `${concurrent.length} of 5 survived`,
+  )
+
   // ---- sprints, because that is where the terminal was furthest behind
 
   await session.call('tools/call', {

@@ -73,6 +73,10 @@ npx kanbo-board sprint show current      # points done against committed, and th
 npx kanbo-board metrics                  # cycle time percentiles, aging WIP, throughput, flow
 ```
 
+The package is `kanbo-board`; the command it installs is `kanbo`. (`kanbo` alone
+was refused by npm as too close to an existing name, and renaming the command to
+match would have been letting the registry name the tool.)
+
 The CLI is not a convenience wrapper — it is the evidence. It calls `@kanbo/core` through `@kanbo/workspace`: the same reducer the board uses, the same merge the sync engine uses, the same query language the palette uses. Nothing about a project is re-implemented for the terminal, and nothing could be, because the domain has no branch for where it is running.
 
 It used to be evidence of six commands. **Everything the browser can do, a terminal can now do** — sprints, releases, the roadmap, links, sub-issues, comments, labels, custom fields, deletion, workload, history, encrypted shares and repository mode — and that sentence is a checked one rather than a claim. `check:parity` maps every operation the domain defines to the action and the command that reach it, as an exhaustive record over the operation union: **adding a kind to the domain stops the build** until somebody says how a terminal reaches it. Anything that reads takes `--json`.
@@ -99,6 +103,8 @@ And an MCP server over stdio, which is the same program with a different last st
 
 Its tools return structured values rather than the aligned columns a person reads, and a refusal comes back as an error a model can act on — "no column called Shipped, here are the five that exist" — rather than as a stack trace. Writes are annotated so a client can ask first; the four tools that remove something are marked destructive, and exactly one, `kanbo_sync`, admits to touching the network. It offers no way to create a share link or set a forge token: those stay at a terminal, where a person is.
 
+Calls are handled one at a time. A model asked for five cards sends five requests together, and each one opens its own view of the log and writes the whole thing back — so unserialised they all read the same state and four are lost while every response reports success. `check:mcp` sends five at once and counts what survives.
+
 ## Development
 
 ```sh
@@ -107,13 +113,14 @@ pnpm dev        # http://localhost:5173 — /connect.html serves the connected d
 pnpm verify     # everything below, in order
 ```
 
-`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, both builds, then six checks that need a built artifact. Each of them exists because a claim in this README would otherwise be true only until the next hurried afternoon.
+`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, both builds, then seven checks that need a built artifact. Each of them exists because a claim in this README would otherwise be true only until the next hurried afternoon.
 
 - **`check:network`** — no network API outside the one declared transport module per runtime; both documents carrying exactly the policies `policy.ts` describes; and, in each published command, exactly one `fetch` call site with the origin refusal still in it.
 - **`check:cli`** — the domain driven with no browser at all, including an export replayed into a different store. Its assertions are written once and run three times: against the source, against the bundle, and against the bin installed from a packed tarball.
 - **`check:parity`** — every operation the domain defines is reachable from a terminal, every reading the browser offers can be printed, and the help does not mention a command that is not routed.
 - **`check:mcp`** — a real stdio session: a card written through a tool is read by the command on the same store, and nothing but JSON-RPC ever reaches stdout.
 - **`check:skill`** — the skill does not name a command that does not exist, and its list of query qualifiers is the one the query language accepts.
+- **`check:version`** — the version in the manifest is the version the MCP server reports and the version the documented MCP config pins.
 - **`check:dist`** — the tarball packed, installed with npm outside the workspace, and driven through every CLI assertion with no pnpm and no TypeScript present.
 - **`smoke`** — a real browser: the strict document genuinely refusing a request, a card moved between columns with the keyboard alone, and two devices converging through a repository.
 

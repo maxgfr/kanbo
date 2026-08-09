@@ -129,6 +129,40 @@ const patchShape = {
 export function registerTools(server: McpServer, context: ToolContext): readonly string[] {
   const names: string[] = []
 
+  /**
+   * One board, one queue.
+   *
+   * A client may have several tool calls in flight at once, and a model asked
+   * to add five cards will happily send five requests together. Each call opens
+   * its own snapshot of the log and writes the whole thing back, so
+   * unserialised they all read the same state and the last write wins: five
+   * creations came back reporting success, every one of them claiming the
+   * reference APL-1, and one card existed afterwards.
+   *
+   * Losing work is bad; losing it while reporting success is worse. So calls
+   * are chained — each one opens the store after the previous has finished
+   * writing to it. They are file operations on a local directory, so the cost
+   * of doing them in order is not worth measuring.
+   *
+   * This makes *this server* safe with itself. It does not make the store safe
+   * against a `kanbo` command running in another terminal at the same instant:
+   * that is a second process, and nothing in a directory of files arbitrates
+   * between them. The window is small and the operation log is append-only, but
+   * it is honest to say it exists rather than to imply a lock nobody holds.
+   */
+  let queue: Promise<unknown> = Promise.resolve()
+
+  function serialise<T>(work: () => Promise<T>): Promise<T> {
+    const next = queue.then(work, work)
+    // The chain must survive a rejection, or one failed tool call would wedge
+    // every call after it.
+    queue = next.then(
+      () => undefined,
+      () => undefined,
+    )
+    return next
+  }
+
   const tool = (
     name: string,
     config: {
@@ -143,13 +177,14 @@ export function registerTools(server: McpServer, context: ToolContext): readonly
     server.registerTool(
       name,
       config as never,
-      (async (args: never) => {
-        try {
-          return reply(await run(args, await context.open()))
-        } catch (error) {
-          return refuse(error)
-        }
-      }) as never,
+      ((args: never) =>
+        serialise(async () => {
+          try {
+            return reply(await run(args, await context.open()))
+          } catch (error) {
+            return refuse(error)
+          }
+        })) as never,
     )
   }
 
