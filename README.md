@@ -101,7 +101,7 @@ And an MCP server over stdio, which is the same program with a different last st
 }
 ```
 
-Its tools return structured values rather than the aligned columns a person reads, and a refusal comes back as an error a model can act on — "no column called Shipped, here are the five that exist" — rather than as a stack trace. Writes are annotated so a client can ask first; the four tools that remove something are marked destructive, and exactly one, `kanbo_sync`, admits to touching the network. It offers no way to create a share link or set a forge token: those stay at a terminal, where a person is.
+Its tools return structured values rather than the aligned columns a person reads, and a refusal comes back as an error a model can act on — "no column called Shipped, here are the six that exist" — rather than as a stack trace. Writes are annotated so a client can ask first; the five tools that remove something are marked destructive, and exactly one, `kanbo_sync`, admits to touching the network. It offers no way to create a share link or set a forge token: those stay at a terminal, where a person is.
 
 Calls are handled one at a time. A model asked for five cards sends five requests together, and each one opens its own view of the log and writes the whole thing back — so unserialised they all read the same state and four are lost while every response reports success. `check:mcp` sends five at once and counts what survives.
 
