@@ -113,12 +113,13 @@ pnpm dev        # http://localhost:5173 — /connect.html serves the connected d
 pnpm verify     # everything below, in order
 ```
 
-`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, both builds, then seven checks that need a built artifact. Each of them exists because a claim in this README would otherwise be true only until the next hurried afternoon.
+`pnpm verify` is what CI runs: typecheck, lint, format, unit tests, both builds, then the nine checks below — the builds come first because four of them drive a built artifact. Each of the nine exists because a claim in this README would otherwise be true only until the next hurried afternoon.
 
 - **`check:network`** — no network API outside the one declared transport module per runtime; both documents carrying exactly the policies `policy.ts` describes; and, in each published command, exactly one `fetch` call site with the origin refusal still in it.
 - **`check:cli`** — the domain driven with no browser at all, including an export replayed into a different store. Its assertions are written once and run three times: against the source, against the bundle, and against the bin installed from a packed tarball.
 - **`check:parity`** — every operation the domain defines is reachable from a terminal, every reading the browser offers can be printed, and the help does not mention a command that is not routed.
 - **`check:mcp`** — a real stdio session: a card written through a tool is read by the command on the same store, and nothing but JSON-RPC ever reaches stdout.
+- **`check:forge`** — repository mode through an actual socket: a loopback HTTPS server speaking the GitHub endpoints the command actually reaches, and two machines converging through it. The connector tests inject a fake transport and the browser checks intercept the request, so this is the only place `nodeHttp`, the token vault and the https guard are exercised together — which is how a batch of imported issues was found to be taking one reference between them.
 - **`check:skill`** — the skill does not name a command that does not exist, and its list of query qualifiers is the one the query language accepts.
 - **`check:version`** — the version in the manifest is the version the MCP server reports and the version the documented MCP config pins.
 - **`check:dist`** — the tarball packed, installed with npm outside the workspace, and driven through every CLI assertion with no pnpm and no TypeScript present.

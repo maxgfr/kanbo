@@ -21,10 +21,16 @@
 // Imported by path, not by name: a script at the repo root is not inside any
 // package, so pnpm's strict layout gives it no `@kanbo/*` to resolve. The
 // network guard does the same for the same reason.
+import { readFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import type { OperationKind } from '../packages/core/src/index.ts'
 import * as workspace from '../packages/workspace/src/index.ts'
 
 import { COMMANDS, helpText } from '../packages/cli/src/commands.ts'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
  * Which action reaches each operation, and which command reaches that action.
@@ -174,6 +180,56 @@ check(
   'every command is spelled in its own usage line',
   usageNames.length === 0,
   usageNames.join(', '),
+)
+
+// ---- the README's account of the gate matches the gate
+
+/**
+ * The list of checks in the README, against the ones `verify` actually runs.
+ *
+ * This drifted the moment it could: the README said "seven checks" over a list
+ * of eight, because the number and the list are two claims about a third thing
+ * and nothing compared any of them. A reader counting the bullets was right and
+ * the sentence was wrong, which is the worst way round.
+ */
+const NUMBERS = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
+]
+
+const manifest = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')) as {
+  scripts: Record<string, string>
+}
+const readme = await readFile(join(ROOT, 'README.md'), 'utf8')
+
+const gate = [...(manifest.scripts['verify'] ?? '').matchAll(/pnpm (check:[a-z]+|smoke)\b/g)].map(
+  (match) => match[1]!,
+)
+const described = [...readme.matchAll(/^- \*\*`(check:[a-z]+|smoke)`\*\*/gm)].map(
+  (match) => match[1]!,
+)
+
+check(
+  'the README describes exactly the checks the gate runs',
+  gate.join(' ') === described.join(' '),
+  `verify: ${gate.join(', ')} | README: ${described.join(', ')}`,
+)
+
+check(
+  'and counts them correctly in the sentence above the list',
+  readme.includes(`then the ${NUMBERS[described.length] ?? '?'} checks below`),
+  `the list has ${described.length}`,
 )
 
 // ---- the count, printed rather than asserted, so a regression is legible
