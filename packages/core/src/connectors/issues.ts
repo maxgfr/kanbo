@@ -14,6 +14,7 @@
  */
 import type { Item, ItemType, Project, Status } from '../model/types.ts'
 import { byOrder } from '../order/fractional.ts'
+import { refAt } from '../ops/author.ts'
 import type { OperationBody } from '../ops/types.ts'
 
 export type RemoteIssue = {
@@ -244,10 +245,18 @@ export function operationsForSync(
 ): readonly OperationBody[] {
   const { backlog, done } = landingStatuses(project)
 
+  // Every issue in the plan is made against the same snapshot, so every one of
+  // them would take the same reference — importing a repository landed the
+  // whole thing on KAN-3. The reference is reassigned from a counter that moves
+  // with the batch, because a duplicate here is not the harmless offline
+  // collision `newItem` describes: `show KAN-3` refuses as ambiguous, and a
+  // pull request naming KAN-3 attaches itself to every card that answers to it.
+  let offset = 0
   const bodies: OperationBody[] = [
-    ...operationsForImport(plan.toCreate, (issue) =>
-      makeItem(issue, issue.state === 'closed' ? done?.id : backlog?.id),
-    ),
+    ...operationsForImport(plan.toCreate, (issue) => ({
+      ...makeItem(issue, issue.state === 'closed' ? done?.id : backlog?.id),
+      ref: refAt(project, offset++),
+    })),
   ]
 
   for (const { item, issue } of plan.toUpdate) {

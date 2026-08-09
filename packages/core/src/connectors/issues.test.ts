@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import { itemById } from '../model/project.ts'
+import { newItem } from '../ops/author.ts'
 import { reduceOperations } from '../ops/reduce.ts'
 import { anItem, op, statusOperations } from '../ops/testing.ts'
+import type { Ports } from '../ports/index.ts'
 import {
   ISSUE_FIELD,
   type RemoteIssue,
   issueNumberOf,
   membersForHandles,
   operationsForImport,
+  operationsForSync,
   planIssueSync,
   typeFromLabels,
 } from './issues.ts'
@@ -133,6 +136,56 @@ describe('operationsForImport', () => {
     expect(project.items).toHaveLength(1)
     expect(issueNumberOf(project.items[0]!)).toBe(7)
     expect(itemById(project, 'generated-1')?.title).toBe('Issue 7')
+  })
+})
+
+describe('operationsForSync', () => {
+  /**
+   * Ports that count, so two items made in one batch are distinguishable.
+   */
+  function ports(): Ports {
+    let id = 0
+    let now = 1_000_000
+    return {
+      clock: { now: () => (now += 1000) },
+      random: { id: () => `id-${++id}` },
+      storage: {
+        get: async () => null,
+        set: async () => {},
+        delete: async () => {},
+        keys: async () => [],
+        clear: async () => {},
+      },
+    }
+  }
+
+  /** Import several issues at once, exactly as both callers do. */
+  function importing(issues: readonly RemoteIssue[]) {
+    const project = { ...projectWith(), key: 'SHR', nextRef: 3 }
+    const runtime = ports()
+    const bodies = operationsForSync(project, planIssueSync(project, issues, DONE), (issue) =>
+      newItem(project, runtime, { title: issue.title }),
+    )
+    return reduceOperations([
+      ...statusOperations(),
+      ...bodies.map((body, index) => op('a', 30 + index, body)),
+    ])
+  }
+
+  it('gives each imported issue its own reference', () => {
+    // `newItem` reads `nextRef` off the snapshot it is handed, and every call in
+    // a batch is handed the same one. Left alone, importing a repository lands
+    // every card on SHR-3: `kanbo show SHR-3` then refuses as ambiguous, and a
+    // pull request naming SHR-3 attaches itself to all of them.
+    const project = importing([anIssue(1), anIssue(2), anIssue(3)])
+
+    const refs = project.items.map((item) => item.ref)
+    expect(new Set(refs).size).toBe(3)
+    expect(refs.toSorted()).toEqual(['SHR-3', 'SHR-4', 'SHR-5'])
+  })
+
+  it('leaves the counter where the next card can take it', () => {
+    expect(importing([anIssue(1), anIssue(2)]).nextRef).toBe(5)
   })
 })
 

@@ -41,6 +41,20 @@ export function operationBuilder(ports: Ports, author: Author, log: readonly Ope
 }
 
 /**
+ * The reference an item takes when it is the `offset`-th created against this
+ * snapshot of the project.
+ *
+ * The counter only advances when an operation is reduced, so every item built
+ * from one snapshot would otherwise claim the same number. That is fine for a
+ * single card and wrong for a batch, which is why anything creating several at
+ * once counts its own offset rather than calling `newItem` repeatedly and
+ * hoping.
+ */
+export function refAt(project: Project, offset = 0): string {
+  return `${project.key}-${project.nextRef + offset}`
+}
+
+/**
  * A new item, placed at the top of its column.
  *
  * The reference (`KAN-42`) is allocated from the project's counter. Two devices
@@ -61,7 +75,7 @@ export function newItem(
   const now = ports.clock.now()
   return {
     id: ports.random.id(),
-    ref: `${project.key}-${project.nextRef}`,
+    ref: refAt(project),
     description: '',
     type: 'task',
     statusId,
