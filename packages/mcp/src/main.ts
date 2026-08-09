@@ -26,6 +26,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { defaultRoot, openWorkspace } from '@kanbo/workspace'
 
 import { registerTools } from './tools.ts'
+import { VERSION } from './version.ts'
 
 /** `--home <dir>`, then `KANBO_HOME`, then `~/.kanbo`. */
 function rootFromArgv(argv: readonly string[]): string {
@@ -37,7 +38,7 @@ function rootFromArgv(argv: readonly string[]): string {
 const root = rootFromArgv(process.argv.slice(2))
 
 const server = new McpServer(
-  { name: 'kanbo', version: '0.2.0' },
+  { name: 'kanbo', version: VERSION },
   {
     instructions: [
       'Kanbo is a local-first project board. Its whole state is an append-only log of',

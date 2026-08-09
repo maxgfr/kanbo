@@ -22,13 +22,17 @@
     "smoke": "node scripts/smoke.ts",
     "build:dist": "node scripts/build-dist.ts",
     "check:dist": "node scripts/check-dist.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:dist && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm check:skill && pnpm check:dist && pnpm smoke",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:dist && pnpm check:network && pnpm check:cli && pnpm check:parity && pnpm check:mcp && pnpm check:skill && pnpm check:version && pnpm check:dist && pnpm smoke",
     "check:cli": "node scripts/check-cli.ts",
     "check:parity": "node scripts/check-parity.ts",
     "check:mcp": "node scripts/check-mcp.ts",
-    "check:skill": "node scripts/check-skill.ts"
+    "check:skill": "node scripts/check-skill.ts",
+    "check:version": "node scripts/sync-version.mjs --check"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/node": "^24.3.0",
@@ -37,6 +41,7 @@
     "oxlint": "^1.77.0",
     "playwright-core": "^1.62.1",
     "prettier": "^3.9.6",
+    "semantic-release": "^25.0.9",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }

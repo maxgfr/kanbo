@@ -1,68 +1,72 @@
 name: Release
 
-# A pushed tag proposes a release; the `npm` environment's reviewer approves it.
-# Publishing is the one thing in this repository that cannot be undone.
+# Conventional-Commit-driven releases, entirely in CI. On every push to `main`,
+# semantic-release reads the commits since the last release and, when they
+# warrant one (feat → minor, fix → patch, `!` or BREAKING CHANGE → major):
+#
+#   - runs the whole gate, `pnpm verify`, which packs the tarball and installs
+#     it with npm outside the workspace before anything is published;
+#   - writes the next version into packages/npm/package.json, propagates it to
+#     the four other places that carry one (scripts/sync-version.mjs), and
+#     rebuilds the two bins so the MCP server reports the version it actually is;
+#   - publishes `kanbo-board` to npm;
+#   - commits the bump back to `main` as `chore(release): <v> [skip ci]`, tags
+#     `v<version>`, and opens the GitHub release with generated notes.
+#
+# There is no NPM_TOKEN. Publishing uses npm's trusted publishing: the job
+# exchanges its OIDC token for a short-lived credential, which also means
+# provenance attestations are generated automatically — which is why
+# `provenance` is deliberately absent from publishConfig, where it would only
+# have made publishing by hand impossible.
+#
+# Configure once on npmjs.com — the package's Settings → Trusted Publisher →
+# GitHub Actions, repository `maxgfr/kanbo`, workflow `release.yml`.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch: {}
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write # push the bump commit and the tag, create the release
+  issues: write # semantic-release comments on released issues
+  pull-requests: write
+  id-token: write # exchanged for an npm credential; also what signs provenance
+
+# Two releases at once would race for the same tag and the same version. Queued
+# rather than cancelled: a cancelled release can leave a published version with
+# no commit behind it.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: npm
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          # Full history and tags: semantic-release decides the next version by
+          # reading what happened since the last one.
+          fetch-depth: 0
+          persist-credentials: true # @semantic-release/git pushes the bump
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      - name: The tag must be the version
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          found="$(node -p "require('./packages/npm/package.json').version")"
-          test "$tag" = "$found" || { echo "the manifest is $found, tag says $tag"; exit 1; }
-
-      - name: The tag must be on main
-        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-
       - run: pnpm install --frozen-lockfile
 
-      # The whole gate, not a subset. check:dist packs the tarball, installs it
-      # with npm outside the workspace, and drives every CLI assertion through
-      # it — so nothing is published that has not already been run as a package.
+      # The same gate CI runs, run again here rather than assumed. A release is
+      # the one moment where trusting another workflow's green tick would be
+      # trusting it about a different commit.
       - run: pnpm verify
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      # Derived rather than defaulted: a v1.0.0-rc.1 landing on `latest` is the
-      # classic release-day mistake.
-      - name: Choose the dist-tag
-        id: tag
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          case "$version" in
-            *-*) echo "dist=next" >> "$GITHUB_OUTPUT" ;;
-            *)   echo "dist=latest" >> "$GITHUB_OUTPUT" ;;
-          esac
-
-      # npm rather than pnpm: pnpm's publisher rewrites workspace protocols and
-      # packs differently, and --provenance is documented and tested against
-      # npm's.
-      #
-      # Provenance is asked for *here* rather than declared in publishConfig,
-      # because it is a property of how a release was produced, not of the
-      # package. Putting it in the manifest makes every local `npm publish`
-      # fail: signing needs an OIDC token that only a supported runner has, and
-      # the first publish of a brand-new name usually has to happen by hand.
-      - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
-        working-directory: packages/npm
+      - run: pnpm exec semantic-release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
