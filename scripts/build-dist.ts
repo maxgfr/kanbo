@@ -52,26 +52,10 @@ const BINS = [
   { name: 'kanbo-mcp.js', entry: 'packages/mcp/src/main.ts' },
 ] as const
 
-/**
- * Where each bin has to land.
- *
- * `npx <name>` resolves a *package* called `<name>`, never a bin inside another
- * one — so `npx -y kanbo-mcp` can only work if a package by that name exists.
- * Rather than depend on `kanbo` and make every cold start fetch two tarballs,
- * the second package carries a byte-identical copy of the same bundle, and
- * `check:dist` asserts it is byte-identical.
- */
-const PACKAGES = ['packages/npm', 'packages/npm-mcp'] as const
-const CARRIES: Record<(typeof PACKAGES)[number], readonly string[]> = {
-  'packages/npm': ['kanbo.js', 'kanbo-mcp.js'],
-  'packages/npm-mcp': ['kanbo-mcp.js'],
-}
-
 const staging = join(ROOT, 'packages/npm/dist')
 const meta = join(ROOT, 'packages/npm/meta')
 
 await rm(staging, { recursive: true, force: true })
-await rm(join(ROOT, 'packages/npm-mcp/dist'), { recursive: true, force: true })
 await mkdir(staging, { recursive: true })
 await mkdir(meta, { recursive: true })
 
@@ -108,19 +92,6 @@ for (const bin of BINS) {
   sizes[bin.name] = Buffer.byteLength(code)
 
   console.log(await analyzeMetafile(result.metafile, { verbose: false }))
-}
-
-// The second package gets the same bytes, not a second build.
-for (const target of PACKAGES) {
-  if (target === 'packages/npm') continue
-  const into = join(ROOT, target, 'dist')
-  await mkdir(into, { recursive: true })
-
-  for (const name of CARRIES[target]) {
-    await writeFile(join(into, name), await readFile(join(staging, name)))
-    await writeFile(join(into, `${name}.map`), await readFile(join(staging, `${name}.map`)))
-    await chmod(join(into, name), 0o755)
-  }
 }
 
 for (const [name, bytes] of Object.entries(sizes)) {

@@ -64,13 +64,13 @@ A person's **forge handle** is their name as the forge spells it, and it is the 
 ## From the terminal
 
 ```sh
-npx kanbo init "Apollo" APL
-npx kanbo add "Ship the departure board" --type story --points 5 --assignee "Ada Lovelace"
-npx kanbo sprint new "Sprint 12" --start 2026-08-03 --end 2026-08-16 --capacity 20
-npx kanbo link APL-2 blocks APL-1
-npx kanbo search "assignee:@me is:blocked"
-npx kanbo sprint show current      # points done against committed, and the burndown
-npx kanbo metrics                  # cycle time percentiles, aging WIP, throughput, flow
+npx kanbo-board init "Apollo" APL
+npx kanbo-board add "Ship the departure board" --type story --points 5 --assignee "Ada Lovelace"
+npx kanbo-board sprint new "Sprint 12" --start 2026-08-03 --end 2026-08-16 --capacity 20
+npx kanbo-board link APL-2 blocks APL-1
+npx kanbo-board search "assignee:@me is:blocked"
+npx kanbo-board sprint show current      # points done against committed, and the burndown
+npx kanbo-board metrics                  # cycle time percentiles, aging WIP, throughput, flow
 ```
 
 The CLI is not a convenience wrapper — it is the evidence. It calls `@kanbo/core` through `@kanbo/workspace`: the same reducer the board uses, the same merge the sync engine uses, the same query language the palette uses. Nothing about a project is re-implemented for the terminal, and nothing could be, because the domain has no branch for where it is running.
@@ -90,7 +90,7 @@ And an MCP server over stdio, which is the same program with a different last st
   "mcpServers": {
     "kanbo": {
       "command": "npx",
-      "args": ["-y", "kanbo-mcp@0.2"],
+      "args": ["-y", "--package=kanbo-board@0.2", "kanbo-mcp"],
       "env": { "KANBO_HOME": "/path/to/project/.kanbo" }
     }
   }

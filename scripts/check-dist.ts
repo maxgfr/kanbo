@@ -24,7 +24,6 @@ import { promisify } from 'node:util'
 const run = promisify(execFile)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const NPM = join(ROOT, 'packages/npm')
-const NPM_MCP = join(ROOT, 'packages/npm-mcp')
 
 const failures: string[] = []
 const checks: string[] = []
@@ -78,12 +77,9 @@ const SHEBANG = '#!/usr/bin/env node'
 
 // ---- 1. shape
 
-for (const [pkg, bins] of [
-  [NPM, ['kanbo.js', 'kanbo-mcp.js']],
-  [NPM_MCP, ['kanbo-mcp.js']],
-] as const) {
-  for (const bin of bins) {
-    const path = join(pkg, 'dist', bin)
+for (const bin of ['kanbo.js', 'kanbo-mcp.js'] as const) {
+  {
+    const path = join(NPM, 'dist', bin)
     try {
       const info = await stat(path)
       const code = await readFile(path, 'utf8')
@@ -176,11 +172,27 @@ check(
   mainAt === -1 ? 'main.ts is not in the sourcemap' : 'the shipped copy has drifted',
 )
 
-// ---- 4. one program, two names
+// ---- 4. every name npx might be given resolves to a bin
 
-const inKanbo = await readFile(join(NPM, 'dist/kanbo-mcp.js'))
-const inMcp = await readFile(join(NPM_MCP, 'dist/kanbo-mcp.js'))
-check('both packages ship the identical MCP server', inKanbo.equals(inMcp))
+const manifest = JSON.parse(await readFile(join(NPM, 'package.json'), 'utf8')) as {
+  name: string
+  bin: Record<string, string>
+}
+
+/**
+ * `npx <name>` looks for a bin called `<name>`, and with several bins it
+ * refuses to guess. One package with two commands therefore needs a third bin
+ * entry spelled like the package, or `npx kanbo-board` fails with "could not
+ * determine executable to run" — which reads like a broken package rather than
+ * like a missing flag.
+ */
+for (const wanted of ['kanbo', 'kanbo-mcp', manifest.name]) {
+  check(
+    `\`npx ${wanted}\` has a bin to resolve to`,
+    wanted in manifest.bin,
+    Object.keys(manifest.bin).join(', '),
+  )
+}
 
 // ---- 5. cold start
 
@@ -222,13 +234,8 @@ try {
   }[] = [
     {
       pkg: NPM,
-      name: 'kanbo',
+      name: manifest.name,
       wanted: ['package.json', 'dist/kanbo.js', 'dist/kanbo-mcp.js', 'LICENSE', 'README.md'],
-    },
-    {
-      pkg: NPM_MCP,
-      name: 'kanbo-mcp',
-      wanted: ['package.json', 'dist/kanbo-mcp.js', 'LICENSE', 'README.md'],
     },
   ]
 
@@ -277,9 +284,14 @@ try {
   })
   check('the installed bin runs with no pnpm and no TypeScript', version.includes('store'), version)
 
-  // The second package exists so that `npx -y kanbo-mcp` resolves at all.
+  // One package, three commands. The MCP config people copy says
+  // `--package=kanbo-board kanbo-mcp`, and that only works if the install put
+  // every one of these on the path.
+  for (const wanted of ['kanbo', 'kanbo-mcp', manifest.name]) {
+    const path = join(installed, 'node_modules/.bin', wanted)
+    check(`${wanted} is on the path after an install`, (await stat(path)).isFile())
+  }
   const mcpBin = join(installed, 'node_modules/.bin/kanbo-mcp')
-  check('kanbo-mcp is installed under its own name', (await stat(mcpBin)).isFile())
 
   const handshake = await new Promise<{ code: number | null; out: string }>((settle) => {
     const child = spawn(mcpBin, ['--home', installed], { stdio: ['pipe', 'pipe', 'ignore'] })

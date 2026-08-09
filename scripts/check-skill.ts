@@ -88,10 +88,13 @@ const routed = new Set(Object.keys(COMMANDS))
 /**
  * `kanbo <word>` anywhere in the document, in prose or in a fenced block.
  *
- * `npx kanbo …` counts too, because that is how most readers will run it.
+ * Both spellings count. The published package is `kanbo-board` and the command
+ * it installs is `kanbo`, so a reader meets `npx kanbo-board board` and
+ * `kanbo board` on the same page — and a regex that only knew one of them would
+ * quietly stop checking half the examples the day the package was renamed.
  */
 const mentioned = new Set(
-  [...body.matchAll(/(?:npx\s+)?kanbo\s+([a-z][a-z-]*)/g)].map((match) => match[1]!),
+  [...body.matchAll(/(?:npx\s+)?kanbo(?:-board)?\s+([a-z][a-z-]*)/g)].map((match) => match[1]!),
 )
 
 // Words that follow `kanbo` without being commands.

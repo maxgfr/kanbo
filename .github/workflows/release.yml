@@ -24,15 +24,11 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      # Two packages ship together and must never disagree about what version
-      # they are: they write to the same store and speak the same format.
-      - name: The tag must be the version, in both manifests
+      - name: The tag must be the version
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          for pkg in packages/npm packages/npm-mcp; do
-            found="$(node -p "require('./$pkg/package.json').version")"
-            test "$tag" = "$found" || { echo "$pkg is $found, tag says $tag"; exit 1; }
-          done
+          found="$(node -p "require('./packages/npm/package.json').version")"
+          test "$tag" = "$found" || { echo "the manifest is $found, tag says $tag"; exit 1; }
 
       - name: The tag must be on main
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
@@ -68,10 +64,5 @@ jobs:
       # the first publish of a brand-new name usually has to happen by hand.
       - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
         working-directory: packages/npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
-        working-directory: packages/npm-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

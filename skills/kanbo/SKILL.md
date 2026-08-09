@@ -11,9 +11,9 @@ machine. Nothing is uploaded. The same log drives a browser UI, the `kanbo`
 command and an MCP server, and none of the three re-implements the other.
 
 ```sh
-npx kanbo status        # is there a project here at all?
-npx kanbo board
-npx kanbo help          # every command; it is generated from the router, so it cannot lie
+npx kanbo-board status        # is there a project here at all?
+npx kanbo-board board
+npx kanbo-board help          # every command; it is generated from the router, so it cannot lie
 ```
 
 Inside a checkout of the repository, `node packages/cli/src/main.ts …` is the
@@ -152,7 +152,7 @@ before anything is deleted. They are the same program.
   "mcpServers": {
     "kanbo": {
       "command": "npx",
-      "args": ["-y", "kanbo-mcp@0.2"],
+      "args": ["-y", "--package=kanbo-board@0.2", "kanbo-mcp"],
       "env": { "KANBO_HOME": "/path/to/project/.kanbo" }
     }
   }

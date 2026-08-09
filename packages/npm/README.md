@@ -1,13 +1,15 @@
-# kanbo
+# kanbo-board
 
 Local-first project management from your terminal. Kanban, sprints, roadmap and
 flow metrics, with a git repository as the only backend — or no backend at all.
 
 ```sh
-npx kanbo init "Apollo" APL
-npx kanbo add "Ship the departure board" --type story --points 5
-npx kanbo board
+npx kanbo-board init "Apollo" APL
+npx kanbo-board add "Ship the departure board" --type story --points 5
+npx kanbo-board board
 ```
+
+Installed globally (`npm i -g kanbo-board`) the command is just `kanbo`.
 
 There is no server, no account and no database. A project is an append-only log
 of operations in a directory on your machine (`~/.kanbo`, or wherever
@@ -15,20 +17,20 @@ of operations in a directory on your machine (`~/.kanbo`, or wherever
 [maxgfr.github.io/kanbo](https://maxgfr.github.io/kanbo/), the `kanbo` command,
 and an MCP server for coding agents.
 
-`kanbo help` lists everything. Anything that reads takes `--json`.
+`kanbo-board help` lists everything. Anything that reads takes `--json`.
 
 ## An agent can drive it
 
-This package also installs `kanbo-mcp`, a Model Context Protocol server over
-stdio. For `npx` to resolve it by name, install
-[`kanbo-mcp`](https://www.npmjs.com/package/kanbo-mcp) — it is the same program:
+The same package installs `kanbo-mcp`, a Model Context Protocol server over
+stdio. It lives in this package rather than its own, so `npx` has to be told
+which package the command comes from:
 
 ```json
 {
   "mcpServers": {
     "kanbo": {
       "command": "npx",
-      "args": ["-y", "kanbo-mcp@0.2"],
+      "args": ["-y", "--package=kanbo-board@0.2", "kanbo-mcp"],
       "env": { "KANBO_HOME": "/path/to/your/project/.kanbo" }
     }
   }
