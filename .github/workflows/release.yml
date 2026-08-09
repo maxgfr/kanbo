@@ -59,8 +59,13 @@ jobs:
 
       # npm rather than pnpm: pnpm's publisher rewrites workspace protocols and
       # packs differently, and --provenance is documented and tested against
-      # npm's. With Trusted Publishing configured on npmjs.com there is no token
-      # here at all; NODE_AUTH_TOKEN is the fallback for the first publish.
+      # npm's.
+      #
+      # Provenance is asked for *here* rather than declared in publishConfig,
+      # because it is a property of how a release was produced, not of the
+      # package. Putting it in the manifest makes every local `npm publish`
+      # fail: signing needs an OIDC token that only a supported runner has, and
+      # the first publish of a brand-new name usually has to happen by hand.
       - run: npm publish --provenance --tag ${{ steps.tag.outputs.dist }}
         working-directory: packages/npm
         env:
