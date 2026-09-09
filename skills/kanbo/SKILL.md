@@ -1,6 +1,9 @@
 ---
 name: kanbo
-description: 'Use when the user wants to read or change a Kanbo project board from the conversation — "what''s on the board", "what am I working on", "add a ticket for X", "move X to in progress", "assign X to Y", "what''s blocked", "plan a sprint", "how did this sprint go", "what shipped", "release notes", "what''s overdue", "who has too much on". Also covers the terminal tooling itself: `kanbo` the command, `kanbo-mcp` the MCP server, KANBO_HOME, importing and exporting a board, encrypted share links, and syncing a board with a GitHub or GitLab repository. Not for editing Kanbo''s own source code.'
+description: Use when the user explicitly asks for kanbo to read or change a project board, add tickets, plan sprints, review overdue work, report what shipped, import or export a board, or synchronize its repository.
+disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # Kanbo from the terminal
