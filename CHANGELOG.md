@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here, generated automatically from the [Conventional Commits](https://www.conventionalcommits.org/) by [semantic-release](https://github.com/semantic-release/semantic-release).
 
+## [0.3.2](https://github.com/maxgfr/kanbo/compare/v0.3.1...v0.3.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* **skills:** preserve manual invocation across agent hosts ([b3011fa](https://github.com/maxgfr/kanbo/commit/b3011faa45062eab112a030e53e2bba556fe8203))
+
 ## [0.3.1](https://github.com/maxgfr/kanbo/compare/v0.3.0...v0.3.1) (2026-08-09)
 
 
