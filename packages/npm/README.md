@@ -30,7 +30,7 @@ which package the command comes from:
   "mcpServers": {
     "kanbo": {
       "command": "npx",
-      "args": ["-y", "--package=kanbo-board@0.3", "kanbo-mcp"],
+      "args": ["-y", "--package=kanbo-board@0.4", "kanbo-mcp"],
       "env": { "KANBO_HOME": "/path/to/your/project/.kanbo" }
     }
   }

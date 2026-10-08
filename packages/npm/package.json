@@ -1,6 +1,6 @@
 {
   "name": "kanbo-board",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Local-first project management. Kanban, sprints and roadmap from your terminal, with a git repo as the only backend. Ships an MCP server too.",
   "license": "MIT",
   "type": "module",
