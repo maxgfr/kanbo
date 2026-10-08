@@ -80,6 +80,25 @@ check(
   description?.slice(0, 80),
 )
 
+// ---- model-invocable, but only on request
+
+check(
+  'Claude Code may load it on its own',
+  !/^disable-model-invocation:\s*true\s*$/m.test(front),
+  'drop `disable-model-invocation: true`; the description keeps it to explicit requests',
+)
+check('OpenCode may advertise it', !/opencode\/autoinvoke:\s*['"]?false['"]?\s*$/m.test(front))
+const codex = await readFile(join(ROOT, 'skills/kanbo/agents/openai.yaml'), 'utf8')
+check(
+  'Codex may invoke it implicitly',
+  /^policy:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+allow_implicit_invocation:\s*true\s*$/m.test(codex),
+)
+check(
+  'its description restricts it to explicit requests',
+  /Use only when the user explicitly asks for kanbo/.test(description),
+  description.slice(0, 80),
+)
+
 // ---- every command it mentions is a command
 
 const body = source.slice(frontmatter?.[0].length ?? 0)
