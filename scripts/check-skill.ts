@@ -87,11 +87,6 @@ check(
   !/^disable-model-invocation:\s*true\s*$/m.test(front),
   'drop `disable-model-invocation: true`; the description keeps it to explicit requests',
 )
-const codex = await readFile(join(ROOT, 'skills/kanbo/agents/openai.yaml'), 'utf8')
-check(
-  'Codex may invoke it implicitly',
-  /^policy:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+allow_implicit_invocation:\s*true\s*$/m.test(codex),
-)
 check(
   'its description restricts it to explicit requests',
   /Use only when the user explicitly asks for kanbo/.test(description),
