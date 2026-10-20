@@ -161,7 +161,7 @@ MIT
 
 The `kanbo` skill is model-invocable, but its description restricts it to explicit requests: the agent calls it when you ask for it, not on its own. Ask for it in plain words, or use `$kanbo` in Codex or `/kanbo` in Claude Code and OpenCode (with the plugin namespace when installed as a Claude plugin).
 
-You keep the switch on every host:
+You keep the switch in the frontmatter of the installed `SKILL.md`:
 
 | Host                  | Shipped, on request                         | Explicit-only                        |
 | --------------------- | ------------------------------------------- | ------------------------------------ |
