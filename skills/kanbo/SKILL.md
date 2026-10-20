@@ -1,8 +1,6 @@
 ---
 name: kanbo
 description: Use only when the user explicitly asks for kanbo to read or change a project board, add tickets, plan sprints, review overdue work, report what shipped, import or export a board, or synchronize its repository.
-metadata:
-  opencode/autoinvoke: 'true'
 ---
 
 # Kanbo from the terminal

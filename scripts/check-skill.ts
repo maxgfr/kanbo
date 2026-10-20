@@ -87,7 +87,6 @@ check(
   !/^disable-model-invocation:\s*true\s*$/m.test(front),
   'drop `disable-model-invocation: true`; the description keeps it to explicit requests',
 )
-check('OpenCode may advertise it', !/opencode\/autoinvoke:\s*['"]?false['"]?\s*$/m.test(front))
 const codex = await readFile(join(ROOT, 'skills/kanbo/agents/openai.yaml'), 'utf8')
 check(
   'Codex may invoke it implicitly',
