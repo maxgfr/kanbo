@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here, generated automatically from the [Conventional Commits](https://www.conventionalcommits.org/) by [semantic-release](https://github.com/semantic-release/semantic-release).
 
+## [0.4.2](https://github.com/maxgfr/kanbo/compare/v0.4.1...v0.4.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** clear high and critical advisories ([#9](https://github.com/maxgfr/kanbo/issues/9)) ([e81d37e](https://github.com/maxgfr/kanbo/commit/e81d37ee28f22ee867a9f0326411880ebeb6367e))
+* **web:** seal the access token with llm-connect's sealedStore ([#11](https://github.com/maxgfr/kanbo/issues/11)) ([b28580b](https://github.com/maxgfr/kanbo/commit/b28580bcbc5c2d93a60ff54eb7b970cf09d40bd8))
+
 ## [0.4.1](https://github.com/maxgfr/kanbo/compare/v0.4.0...v0.4.1) (2026-11-02)
 
 
