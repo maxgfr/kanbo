@@ -1,6 +1,6 @@
 import type { Storage } from '@kanbo/core'
 import { readToken as unframeToken } from '@kanbo/crypto/token'
-import { sealedStore } from 'llm-connect'
+import { sealedStore } from 'llm-connect/sealed-store'
 
 /**
  * Encryption at rest, with a key JavaScript cannot read.

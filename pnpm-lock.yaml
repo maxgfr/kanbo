@@ -72,8 +72,8 @@ importers:
         specifier: workspace:*
         version: link:../crypto
       llm-connect:
-        specifier: ^2.7.0
-        version: 2.7.0(react@19.3.1)
+        specifier: ^2.8.0
+        version: 2.8.0(react@19.3.1)
 
   packages/cli:
     dependencies:
@@ -1881,8 +1881,8 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
-  llm-connect@2.7.0:
-    resolution: {integrity: sha512-sr2/aH2iWBVDdQ83UX/5tZ2OPi2O6I28OqKAWLMcgTaZEhAp6KKAAEL+7Zu7HCt1znX0G+1zByT4zAP6sHl0pA==}
+  llm-connect@2.8.0:
+    resolution: {integrity: sha512-1Ml1RjxmVLW4Eje2kttnccEGVe0H80+FvwX//CLWG7O7HaGXJmk9go42OAJnCNLjquVfqsvAAnQaFp+pdqfbQQ==}
     peerDependencies:
       '@ai-sdk/anthropic': ^4.0.0
       '@ai-sdk/google': ^4.0.0
@@ -4552,7 +4552,7 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  llm-connect@2.7.0(react@19.3.1):
+  llm-connect@2.8.0(react@19.3.1):
     dependencies:
       llm-models: 1.14.1
     optionalDependencies:
