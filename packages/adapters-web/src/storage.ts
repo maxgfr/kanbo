@@ -93,31 +93,62 @@ export function browserStorage(): Storage {
  * `clear()` empties the store; this removes it. The difference matters for the
  * promise the settings screen makes — after this, a forensic look at the
  * profile finds no Kanbo database, not an empty one.
+ *
+ * Only Kanbo's own, though. GitHub Pages serves every project of the account
+ * from one origin, so localStorage, sessionStorage, the caches and service
+ * worker registrations are shared with dozens of unrelated apps: clearing them
+ * wholesale would erase their data too. Everything here is picked by name —
+ * our databases, the `kanbo.` keys, caches named after us, and a worker only if
+ * its scope is this app's own path.
  */
-export async function wipeEverything(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    const request = indexedDB.deleteDatabase(DATABASE)
+export const KANBO_DATABASES = [DATABASE, 'kanbo-keys'] as const
+const KEY_PREFIX = 'kanbo.'
+
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const request = indexedDB.deleteDatabase(name)
     // Every outcome resolves: a database that refuses to delete must not leave
     // the user staring at a spinner on the one screen that promised finality.
     request.addEventListener('success', () => resolve())
     request.addEventListener('error', () => resolve())
     request.addEventListener('blocked', () => resolve())
   })
+}
 
-  try {
-    localStorage.clear()
-    sessionStorage.clear()
-  } catch {
-    // Storage may be blocked entirely; nothing was written in that case either.
+function removeOwnKeys(area: globalThis.Storage): void {
+  const ours: string[] = []
+  for (let index = 0; index < area.length; index++) {
+    const key = area.key(index)
+    if (key?.startsWith(KEY_PREFIX)) ours.push(key)
+  }
+  for (const key of ours) area.removeItem(key)
+}
+
+export async function wipeEverything(): Promise<void> {
+  await Promise.all(KANBO_DATABASES.map(deleteDatabase))
+
+  for (const area of ['localStorage', 'sessionStorage'] as const) {
+    try {
+      removeOwnKeys(globalThis[area])
+    } catch {
+      // Storage may be blocked entirely; nothing was written in that case either.
+    }
   }
 
   if ('caches' in globalThis) {
     const names = await caches.keys()
-    await Promise.all(names.map((name) => caches.delete(name)))
+    await Promise.all(
+      names.filter((name) => name.startsWith('kanbo')).map((name) => caches.delete(name)),
+    )
   }
 
   if ('serviceWorker' in navigator) {
+    const ownScope = new URL('./', document.baseURI).href
     const registrations = await navigator.serviceWorker.getRegistrations()
-    await Promise.all(registrations.map((registration) => registration.unregister()))
+    await Promise.all(
+      registrations
+        .filter((registration) => registration.scope.startsWith(ownScope))
+        .map((registration) => registration.unregister()),
+    )
   }
 }
