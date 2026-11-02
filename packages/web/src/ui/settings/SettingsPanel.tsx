@@ -323,6 +323,7 @@ function RepositorySection({
   const store = usePorts()
   const [token, setToken] = useState('')
   const [saved, setSaved] = useState<boolean | null>(null)
+  const [tokenProblem, setTokenProblem] = useState<string | null>(null)
   const [state, setState] = useState<SyncState>({ kind: 'idle', at: null })
   const [issuesBusy, setIssuesBusy] = useState(false)
   const [issueReport, setIssueReport] = useState<string | null>(null)
@@ -400,12 +401,20 @@ function RepositorySection({
       />
       <div className="kb-row">
         <Button
-          onClick={() =>
-            void saveToken(store, token).then(() => {
-              setToken('')
-              void hasToken(store).then(setSaved)
-            })
-          }
+          onClick={() => {
+            setTokenProblem(null)
+            void saveToken(store, token)
+              .then(() => {
+                setToken('')
+                void hasToken(store).then(setSaved)
+              })
+              // Kept in the field: a token that was not stored must not look saved.
+              .catch((error: unknown) =>
+                setTokenProblem(
+                  error instanceof Error ? error.message : 'The token could not be stored.',
+                ),
+              )
+          }}
         >
           {token === '' && saved ? 'Remove token' : 'Save token'}
         </Button>
@@ -429,6 +438,12 @@ function RepositorySection({
         </Button>
       </div>
 
+      {tokenProblem !== null && (
+        <p role="alert" className="kb-row" style={{ color: 'var(--signal-cancelled)', margin: 0 }}>
+          <Icon name="warning" size={14} />
+          {tokenProblem}
+        </p>
+      )}
       {state.kind === 'failed' && (
         <p className="kb-row" style={{ color: 'var(--signal-cancelled)', margin: 0 }}>
           <Icon name="warning" size={14} />

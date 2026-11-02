@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
 
 import react from '@vitejs/plugin-react'
 import { type Plugin, defineConfig } from 'vite'
@@ -120,11 +121,30 @@ function contentSecurityPolicy(): Plugin {
   }
 }
 
+/**
+ * The one file of llm-connect the page uses.
+ *
+ * Its main entry also reaches the AI SDK providers through `import()`, and
+ * those are optional peers Kanbo does not install: bundling the entry would
+ * fail on them even though nothing here calls a model. The sealed store has no
+ * imports of its own, so pointing the bundler straight at it ships exactly the
+ * code that runs — and a release that moves the file fails the build loudly.
+ */
+const SEALED_STORE = resolve(
+  dirname(
+    createRequire(resolve(import.meta.dirname, '../adapters-web/package.json')).resolve(
+      'llm-connect/package.json',
+    ),
+  ),
+  'build/sealed-store.js',
+)
+
 export default defineConfig({
   // GitHub Pages serves the app from /kanbo/; Docker and dev serve it from the
   // root. The workflow sets this, so the default stays correct everywhere else.
   base: process.env.KANBO_BASE ?? '/',
   plugins: [react(), contentSecurityPolicy()],
+  resolve: { alias: [{ find: /^llm-connect$/, replacement: SEALED_STORE }] },
   build: {
     target: 'es2023',
     // An inline script would be blocked by our own policy, and the CI guard

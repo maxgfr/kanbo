@@ -101,7 +101,8 @@ export function browserStorage(): Storage {
  * our databases, the `kanbo.` keys, caches named after us, and a worker only if
  * its scope is this app's own path.
  */
-export const KANBO_DATABASES = [DATABASE, 'kanbo-keys'] as const
+// `kanbo-sealed` holds the sealed token; `kanbo-keys` the key of the version before it.
+export const KANBO_DATABASES = [DATABASE, 'kanbo-sealed', 'kanbo-keys'] as const
 const KEY_PREFIX = 'kanbo.'
 
 function deleteDatabase(name: string): Promise<void> {

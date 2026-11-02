@@ -28,7 +28,7 @@ afterEach(() => {
 })
 
 describe('wipeEverything', () => {
-  it('deletes both Kanbo databases', async () => {
+  it('deletes every Kanbo database', async () => {
     const deleted = fakeIndexedDb()
     await wipeEverything()
     expect(deleted.sort()).toEqual([...KANBO_DATABASES].sort())
