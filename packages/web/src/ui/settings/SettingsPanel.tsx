@@ -275,9 +275,10 @@ export function SettingsPanel({ onClose, announceMode = false }: SettingsPanelPr
           <section className="kb-field" style={{ marginTop: 'auto', paddingTop: 'var(--space-5)' }}>
             <h2 className="kb-field__label">Erase everything</h2>
             <p className="kb-muted" style={{ margin: 0, lineHeight: 1.6 }}>
-              Deletes the database itself rather than emptying it, along with local storage, caches
-              and the service worker. Afterwards a look at this browser profile finds no Kanbo data
-              — not an empty store. This cannot be undone.
+              Deletes the databases themselves rather than emptying them, along with Kanbo’s local
+              storage, caches and service worker. Afterwards a look at this browser profile finds no
+              Kanbo data — not an empty store. Other sites on this address keep theirs. This cannot
+              be undone.
             </p>
             {confirmingWipe ? (
               <div className="kb-row">

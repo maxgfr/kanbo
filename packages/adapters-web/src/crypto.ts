@@ -35,6 +35,7 @@ async function keyFor(storage: Storage): Promise<CryptoKey> {
   return key
 }
 
+// Listed in storage.ts's KANBO_DATABASES too, so erasing everything takes it.
 const KEY_DB = 'kanbo-keys'
 const KEY_STORE = 'keys'
 
