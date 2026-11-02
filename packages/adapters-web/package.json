@@ -12,6 +12,6 @@
   "dependencies": {
     "@kanbo/core": "workspace:*",
     "@kanbo/crypto": "workspace:*",
-    "llm-connect": "^2.7.0"
+    "llm-connect": "^2.8.0"
   }
 }

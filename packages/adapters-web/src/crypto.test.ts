@@ -16,8 +16,8 @@ import { LEGACY_KEY_DB, SEALED_DB, TokenNotStored, readToken, storeToken } from 
  */
 const failWrites = vi.hoisted(() => ({ on: false }))
 
-vi.mock('llm-connect', async (original) => {
-  const actual = await original<typeof import('llm-connect')>()
+vi.mock('llm-connect/sealed-store', async (original) => {
+  const actual = await original<typeof import('llm-connect/sealed-store')>()
   return {
     ...actual,
     sealedStore: (options: { dbName: string }) => {
