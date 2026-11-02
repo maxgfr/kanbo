@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here, generated automatically from the [Conventional Commits](https://www.conventionalcommits.org/) by [semantic-release](https://github.com/semantic-release/semantic-release).
 
+## [0.4.1](https://github.com/maxgfr/kanbo/compare/v0.4.0...v0.4.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **web:** erase only Kanbo's own data on the shared origin ([#8](https://github.com/maxgfr/kanbo/issues/8)) ([f50180b](https://github.com/maxgfr/kanbo/commit/f50180be3377310dfb7b53f08cd71c04c236eb2f))
+
 # [0.4.0](https://github.com/maxgfr/kanbo/compare/v0.3.2...v0.4.0) (2026-10-08)
 
 
