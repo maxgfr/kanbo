@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here, generated automatically from the [Conventional Commits](https://www.conventionalcommits.org/) by [semantic-release](https://github.com/semantic-release/semantic-release).
 
+## [0.4.3](https://github.com/maxgfr/kanbo/compare/v0.4.2...v0.4.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **web:** import the sealed store from llm-connect/sealed-store ([#12](https://github.com/maxgfr/kanbo/issues/12)) ([02cc881](https://github.com/maxgfr/kanbo/commit/02cc8815a48a4919eaff870a8a28c62d0d6a476b))
+
 ## [0.4.2](https://github.com/maxgfr/kanbo/compare/v0.4.1...v0.4.2) (2026-11-02)
 
 
